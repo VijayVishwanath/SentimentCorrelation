@@ -1,0 +1,35 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# secrets / local config
+.env
+
+# runtime data (SQLite db is created at startup; WAL side files)
+data/*.db
+data/*.db-*
+
+# frontend dependencies and build output
+frontend/node_modules/
+frontend/dist/
+frontend/*.tsbuildinfo
+
+# logs, OS and Office temp files
+*.log
+.DS_Store
+Thumbs.db
+~$*
+
+# Cloud Shell upload bundle (generated)
+dex-sentinel-source.zip
+
+# Original hackathon inputs (not needed to build, run or deploy the app;
+# the dataset used by the app lives in data/)
+/DEX_Sentinel_Judge_Briefing.docx
+/DEX_Sentinel_Pitch_Deck.pptx
+/DEX_Sentinel_Prototype.html
+/DEX_Sentinel_Simulated_Dataset.xlsx
+/masterprompt.md
+/requirements.md

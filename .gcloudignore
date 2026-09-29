@@ -1,0 +1,25 @@
+# Files NOT uploaded to Cloud Build by `gcloud run deploy --source .`
+.gcloudignore
+.git/
+.gitignore
+.venv/
+**/__pycache__/
+**/.pytest_cache/
+.env
+data/*.db
+data/*.db-*
+frontend/node_modules/
+frontend/dist/
+*.log
+# hackathon inputs / docs — not needed in the image
+/*.pptx
+/*.docx
+/DEX_Sentinel_Prototype.html
+/DEX_Sentinel_Simulated_Dataset.xlsx
+/masterprompt.md
+/requirements.md
+/documentation.md
+/docs/
+/deploy/
+backend/tests/
+/dex-sentinel-source.zip
