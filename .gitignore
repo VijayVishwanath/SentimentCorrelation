@@ -4,8 +4,11 @@ __pycache__/
 *.pyc
 .pytest_cache/
 
-# secrets / local config
+# secrets / local config: never commit environment files (only the empty template)
 .env
+.env.*
+*.env
+!.env.example
 
 # runtime data (SQLite db is created at startup; WAL side files)
 data/*.db
