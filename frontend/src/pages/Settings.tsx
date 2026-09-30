@@ -56,7 +56,7 @@ export default function SettingsPage() {
               </dl>
             )}
           </QueryState>
-          <Link to="/upload" className="btn btn-primary mt"><UploadCloud size={14} />Upload a new dataset (Module 8)</Link>
+          <Link to="/upload" className="btn btn-primary mt"><UploadCloud size={14} />Upload a new dataset</Link>
         </Card>
 
         <Card title="Business-impact assumptions" sub="drive Business Impact Savings and Resolution Efficiency">
@@ -77,13 +77,16 @@ export default function SettingsPage() {
                   <thead><tr><th>Root-cause model</th><th className="num">Top-1 accuracy</th></tr></thead>
                   <tbody>
                     <tr><td>Rule fusion engine (65% telemetry / 35% text) — primary</td><td className="num">{fmt.pct(m.root_cause.rule_engine)}</td></tr>
-                    <tr><td>ML: TF-IDF text + telemetry (logistic regression)</td><td className="num">{fmt.pct(m.root_cause.fused_ml)}</td></tr>
-                    <tr><td>ML: text only</td><td className="num">{fmt.pct(m.root_cause.text_only_ml)}</td></tr>
+                    <tr><td>ML: TF-IDF text + telemetry (logistic regression) <span className="faint">†</span></td><td className="num">{fmt.pct(m.root_cause.fused_ml)}</td></tr>
+                    <tr><td>ML: text only <span className="faint">†</span></td><td className="num">{fmt.pct(m.root_cause.text_only_ml)}</td></tr>
                     <tr><td>ML: telemetry only</td><td className="num">{fmt.pct(m.root_cause.telemetry_only_ml)}</td></tr>
-                    <tr><td>Sentiment lexicon vs hidden ground-truth tier</td><td className="num">{fmt.pct(m.sentiment_lexicon.validated_agreement_pct)}</td></tr>
+                    <tr><td>Sentiment lexicon vs hidden ground-truth tier <span className="faint">†</span></td><td className="num">{fmt.pct(m.sentiment_lexicon.validated_agreement_pct)}</td></tr>
                   </tbody>
                 </table>
                 <div className="note mt">{m.root_cause.evaluation} · n = {m.root_cause.n}. {m.disclosure}</div>
+                <div className="note">† Upper bound: the simulated tickets are written from a few sentence templates per category, so text-based
+                  scores are near-perfect by construction. Telemetry-only accuracy and the out-of-time forecast below are the fair read;
+                  real ticket text will score lower.</div>
                 <table className="t mt">
                   <thead><tr><th>Next-week frustrated-ticket prediction</th><th className="num">Caught (top 5%)</th><th className="num">PR-AUC</th><th className="num">ROC-AUC</th></tr></thead>
                   <tbody>

@@ -2,6 +2,8 @@ import { Bot, CheckCircle2, CircleAlert, Stethoscope } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Any, useMeta, fmt, qsOf, sevColor, useApi, usePost } from "../api";
+import { ExplainButton } from "../components/Explain";
+import { FixNowButton } from "../components/FixNow";
 import { Card, DataTable, ErrorBox, Meter, SevBadge, StateText } from "../components/ui";
 
 interface Body { ticket_text: string; device_id: string; week?: number; repeat_contacts: number; escalations: number; include_ml: boolean }
@@ -61,7 +63,7 @@ export default function Diagnosis() {
     <>
       <div className="page-head">
         <div>
-          <div className="eyebrow">Module 4 · Diagnosis Assist + Root Cause Engine</div>
+          <div className="eyebrow">Diagnosis Assist + Root Cause Engine</div>
           <h2>Root cause in seconds, from a ticket and a device</h2>
           <p>Fuses telemetry severity (65%) with the ticket's language (35%) into ranked root causes, refines to a sub-cause,
             shows the telemetry evidence and recommends a fix — with an ML second opinion.</p>
@@ -120,7 +122,8 @@ export default function Diagnosis() {
             <>
               <div className="row between" style={{ marginBottom: 6 }}>
                 <span className="field" style={{ margin: 0 }}>Frustration score</span>
-                <span className="row" style={{ gap: 6 }}><SevBadge sev={r.experience.severity} /><span className="chip">{r.experience.emotion}</span></span>
+                <span className="row" style={{ gap: 6 }}><SevBadge sev={r.experience.severity} /><span className="chip">{r.experience.emotion}</span>
+                  <ExplainButton source={{ text, repeat: r.experience.repeat_contacts, escalations: r.experience.escalations }}>Why?</ExplainButton></span>
               </div>
               <Meter value={r.experience.frustration_score} color={sevColor(r.experience.severity)}
                      label={<b className="mono" style={{ color: sevColor(r.experience.severity) }}>{r.experience.frustration_score}/100</b>} />
@@ -155,6 +158,7 @@ export default function Diagnosis() {
                     <div className="rk">Suggested remediation · confidence {r.primary.confidence}% {r.primary.kb_id && <>· runbook {r.primary.kb_id}</>}</div>
                     <div style={{ fontWeight: 700, fontSize: 14 }}>{r.recommendation}</div>
                     {r.standard_action !== r.recommendation && <div className="note" style={{ marginTop: 4 }}>Standard action for {r.primary.category}: {r.standard_action}</div>}
+                    <div className="mt"><FixNowButton label={`Fix ${r.device.device_id} now`} target={{ category: r.primary.category, deviceIds: [r.device.device_id] }} /></div>
                   </div>
                   {r.expected_outcome && (
                     <div className="note mt">Expected outcome from {r.expected_outcome.based_on_cases} past {r.primary.category} fixes: repeat contacts −{fmt.n(r.expected_outcome.repeat_contact_reduction_pct, 0)}%,
@@ -186,7 +190,10 @@ export default function Diagnosis() {
         <Card className="mt" title={`Ticket history · ${r.device.employee_name}`} sub={`${r.history.prior_same_category} prior ${r.primary.category} ticket(s)`}>
           <DataTable rows={r.history.last_tickets} columns={[
             { key: "ticket_id", label: "Ticket" }, { key: "week", label: "Week", num: true }, { key: "category", label: "Category" },
-            { key: "ticket_text", label: "Text" }, { key: "frustration_score", label: "Frustration", num: true }, { key: "outcome_status", label: "Status" },
+            { key: "ticket_text", label: "Text" },
+            { key: "frustration_score", label: "Frustration", num: true, render: (x: Any) => x.ticket_id
+              ? <ExplainButton source={{ ticketId: x.ticket_id }}><b className="mono">{x.frustration_score}</b></ExplainButton> : x.frustration_score },
+            { key: "outcome_status", label: "Status" },
           ]} />
         </Card>
       )}

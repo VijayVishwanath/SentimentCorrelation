@@ -132,3 +132,29 @@ def test_anthropic_refusal_falls_back(store, monkeypatch):
     out = agent.ask("Fleet overview?", provider="anthropic")
     assert out["provider"] == "template" and "declined" in out["fallback_reason"]
     assert AnthropicCopilot  # imported for coverage of module import
+
+
+def test_command_center_ranks_costed_actions(client):
+    d = client.get("/api/v1/dashboard/command-center").json()
+    h, acts = d["headline"], d["actions"]
+    assert h["dex_score"] == client.get("/api/v1/dashboard/executive").json()["kpis"]["dex_score"]
+    assert acts and len({a["category"] for a in acts}) == len(acts)  # one card per fix type
+    assert [a["savings_per_year_usd"] for a in acts] == sorted((a["savings_per_year_usd"] for a in acts), reverse=True)
+    assert d["roadmap"]["from"] <= d["roadmap"]["to"] <= 100
+    assert d["roadmap"]["savings_per_year_usd"] == sum(a["savings_per_year_usd"] for a in acts[:3])
+    assert client.get("/api/v1/dashboard/command-center?department=Finance").status_code == 200
+
+
+def test_table_header_sort_and_filters(client):
+    t = client.get("/api/v1/experience/tickets?sort_by=frustration_score&order=asc&f_severity=High&limit=500").json()
+    scores = [x["frustration_score"] for x in t["items"]]
+    assert scores == sorted(scores) and all(x["severity"] == "High" for x in t["items"])
+    assert "High" in t["options"]["severity"]
+    hi = client.get("/api/v1/experience/tickets?f_frustration_score=>=90&f_employee_name=a&limit=50").json()
+    assert all(x["frustration_score"] >= 90 and "a" in x["employee_name"].lower() for x in hi["items"])
+    d = client.get("/api/v1/telemetry/devices?sort_by=boot_duration_sec&order=desc&f_policy_compliant=false&limit=20").json()
+    boots = [x["boot_duration_sec"] for x in d["items"]]
+    assert boots == sorted(boots, reverse=True) and not any(x["policy_compliant"] for x in d["items"])
+    assert d["options"]["health_band"]
+    assert client.get("/api/v1/telemetry/devices?sort_by=nope").status_code == 422
+    assert client.get("/api/v1/telemetry/devices?f_tickets=abc").status_code == 422

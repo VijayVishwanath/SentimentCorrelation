@@ -1,5 +1,6 @@
-import { AlertTriangle, ArrowDownRight, ArrowUpRight, CheckCircle2, CircleAlert, Info, Table2, BarChart3 } from "lucide-react";
-import { ReactNode, useState } from "react";
+import { AlertTriangle, Loader2, ArrowDown, ArrowDownRight, ArrowUp, ArrowUpDown, ArrowUpRight, BarChart3, CheckCircle2, ChevronLeft,
+  ChevronRight, ChevronsLeft, ChevronsRight, CircleAlert, Info, Table2 } from "lucide-react";
+import { ReactNode, useEffect, useMemo, useState } from "react";
 import { ApiError, fmt } from "../api";
 
 export function Card({ title, sub, right, children, className = "", style }: {
@@ -18,26 +19,200 @@ export function Card({ title, sub, right, children, className = "", style }: {
   );
 }
 
-export interface Column<T> { key: string; label: string; num?: boolean; render?: (row: T) => ReactNode; width?: string }
+export interface Column<T> {
+  key: string; label: string; num?: boolean; render?: (row: T) => ReactNode; width?: string;
+  /** Header sorting (on by default when the table is sortable; false for action / composite columns). */
+  sortable?: boolean;
+  /** Value used for client-side sorting and filtering when the cell is rendered (defaults to row[key]). */
+  value?: (row: T) => unknown;
+  /** Header filter: text = contains, select = equals, num = ">=60", "<=40", "=3" (a bare number means >=). */
+  filter?: "text" | "select" | "num";
+  options?: string[];
+  optionLabels?: Record<string, string>;
+}
 
-export function DataTable<T extends Record<string, unknown>>({ rows, columns, onRow, max }: {
-  rows: T[]; columns: Column<T>[]; onRow?: (r: T) => void; max?: number;
-}) {
-  const shown = max ? rows.slice(0, max) : rows;
-  if (!rows.length) return <div className="empty">No rows</div>;
+export type SortState = { key: string; dir: "asc" | "desc" } | null;
+
+/** Server-paged mode: the parent owns sort / filters / page and fetches the current page from the API. */
+export interface ServerTable {
+  total: number; page: number; setPage: (p: number) => void;
+  sort: SortState; setSort: (s: SortState) => void;
+  filters: Record<string, string>; setFilter: (key: string, value: string) => void;
+  options?: Record<string, string[]>;
+}
+
+/** State for a server-paged DataTable: returns the API query params and the `server` prop for the table. */
+export function useServerTable(pageSize = 5) {
+  const [page, setPage] = useState(0);
+  const [sort, setSortState] = useState<SortState>(null);
+  const [filters, setFilters] = useState<Record<string, string>>({});
+  const params: Record<string, string | number | undefined> = {
+    limit: pageSize, offset: page * pageSize, sort_by: sort?.key, order: sort?.dir,
+    ...Object.fromEntries(Object.entries(filters).filter(([, v]) => v).map(([k, v]) => [`f_${k}`, v])),
+  };
+  const table = (total: number, options?: Record<string, string[]>): ServerTable => ({
+    total, page, setPage, options, filters, sort,
+    setSort: (s) => { setSortState(s); setPage(0); },
+    setFilter: (k, v) => { setFilters((f) => ({ ...f, [k]: v })); setPage(0); },
+  });
+  return { params, table, reset: () => setPage(0) };
+}
+
+function numMatch(v: unknown, raw: string): boolean {
+  const op = [">=", "<=", ">", "<", "="].find((o) => raw.startsWith(o)) || ">=";
+  const x = parseFloat(raw.startsWith(op) ? raw.slice(op.length) : raw);
+  const n = typeof v === "number" ? v : parseFloat(String(v));
+  if (Number.isNaN(x)) return true;
+  if (Number.isNaN(n)) return false;
+  return op === ">=" ? n >= x : op === "<=" ? n <= x : op === ">" ? n > x : op === "<" ? n < x : n === x;
+}
+
+function cmp(a: unknown, b: unknown): number {
+  const empty = (v: unknown) => v === null || v === undefined || v === "" || (typeof v === "number" && Number.isNaN(v));
+  if (empty(a) || empty(b)) return empty(a) === empty(b) ? 0 : empty(a) ? 1 : -1;  // blanks last
+  if (typeof a === "number" && typeof b === "number") return a - b;
+  if (typeof a === "boolean" && typeof b === "boolean") return Number(a) - Number(b);
+  return String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: "base" });
+}
+
+/** Text filter input that waits for typing to pause before applying (avoids one request per keystroke). */
+function FilterInput({ value, onChange, placeholder, label }: { value: string; onChange: (v: string) => void; placeholder: string; label: string }) {
+  const [v, setV] = useState(value);
+  useEffect(() => setV(value), [value]);
+  useEffect(() => {
+    if (v === value) return;
+    const t = setTimeout(() => onChange(v), 300);
+    return () => clearTimeout(t);
+  }, [v]);  // eslint-disable-line react-hooks/exhaustive-deps
+  return <input value={v} onChange={(e) => setV(e.target.value)} placeholder={placeholder} aria-label={`Filter ${label}`} />;
+}
+
+export function Pager({ page, pageSize, total, setPage }: { page: number; pageSize: number; total: number; setPage: (p: number) => void }) {
+  const pages = Math.max(1, Math.ceil(total / pageSize));
+  if (total <= pageSize) return total ? <div className="pager"><span className="note">{total} row{total === 1 ? "" : "s"}</span></div> : null;
   return (
-    <div className="table-wrap">
-      <table className="t">
-        <thead><tr>{columns.map((c) => <th key={c.key} className={c.num ? "num" : ""} style={{ width: c.width }}>{c.label}</th>)}</tr></thead>
-        <tbody>
-          {shown.map((r, i) => (
-            <tr key={i} className={onRow ? "click" : ""} onClick={onRow ? () => onRow(r) : undefined}
-                tabIndex={onRow ? 0 : undefined} onKeyDown={onRow ? (e) => e.key === "Enter" && onRow(r) : undefined}>
-              {columns.map((c) => <td key={c.key} className={c.num ? "num" : ""}>{c.render ? c.render(r) : String(r[c.key] ?? "—")}</td>)}
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div className="pager">
+      <span className="note">Showing {page * pageSize + 1}–{Math.min(total, (page + 1) * pageSize)} of {total.toLocaleString()}</span>
+      <div className="row" style={{ gap: 6 }}>
+        <button className="btn btn-ghost btn-sm" disabled={page === 0} onClick={() => setPage(0)} aria-label="First page"><ChevronsLeft size={13} /></button>
+        <button className="btn btn-ghost btn-sm" disabled={page === 0} onClick={() => setPage(page - 1)}><ChevronLeft size={13} />Prev {pageSize}</button>
+        <span className="mono" style={{ fontSize: 12 }}>Page {page + 1} / {pages.toLocaleString()}</span>
+        <button className="btn btn-ghost btn-sm" disabled={page >= pages - 1} onClick={() => setPage(page + 1)}>Next {pageSize}<ChevronRight size={13} /></button>
+        <button className="btn btn-ghost btn-sm" disabled={page >= pages - 1} onClick={() => setPage(pages - 1)} aria-label="Last page"><ChevronsRight size={13} /></button>
+      </div>
+    </div>
+  );
+}
+
+export function DataTable<T extends Record<string, unknown>>({ rows, columns, onRow, max, pageSize, sortable, server }: {
+  rows: T[]; columns: Column<T>[]; onRow?: (r: T) => void; max?: number;
+  /** Show this many rows per page with Prev / Next paging. */
+  pageSize?: number;
+  /** Clickable column headers (client-side unless `server` is given). */
+  sortable?: boolean;
+  server?: ServerTable;
+}) {
+  const [cSort, setCSort] = useState<SortState>(null);
+  const [cFilters, setCFilters] = useState<Record<string, string>>({});
+  const [cPage, setCPage] = useState(0);
+  const sort = server ? server.sort : cSort;
+  const flt = server ? server.filters : cFilters;
+  const page = server ? server.page : cPage;
+  const canSort = !!(sortable || server);
+  const hasFilters = columns.some((c) => c.filter);
+  const val = (c: Column<T>, r: T) => (c.value ? c.value(r) : r[c.key]);
+
+  const view = useMemo(() => {
+    if (server) return rows;
+    let out = rows;
+    for (const c of columns) {
+      const raw = (cFilters[c.key] || "").trim();
+      if (!raw || !c.filter) continue;
+      out = out.filter((r) => {
+        const v = val(c, r);
+        if (c.filter === "num") return numMatch(v, raw);
+        if (c.filter === "select") return String(v ?? "") === raw;
+        return String(v ?? "").toLowerCase().includes(raw.toLowerCase());
+      });
+    }
+    if (cSort) {
+      const c = columns.find((x) => x.key === cSort.key);
+      if (c) out = [...out].sort((a, b) => cmp(val(c, a), val(c, b)) * (cSort.dir === "asc" ? 1 : -1));
+    }
+    return out;
+  }, [rows, columns, cFilters, cSort, server]);  // eslint-disable-line react-hooks/exhaustive-deps
+
+  const total = server ? server.total : view.length;
+  const size = pageSize || 0;
+  const shown = server ? view : size ? view.slice(page * size, page * size + size) : max ? view.slice(0, max) : view;
+  const setPage = server ? server.setPage : setCPage;
+  const setSort = (key: string) => {
+    const next: SortState = sort?.key !== key ? { key, dir: "asc" } : sort.dir === "asc" ? { key, dir: "desc" } : null;
+    if (server) server.setSort(next); else { setCSort(next); setCPage(0); }
+  };
+  const setFilter = (key: string, v: string) => {
+    if (server) server.setFilter(key, v); else { setCFilters((f) => ({ ...f, [key]: v })); setCPage(0); }
+  };
+  const optionsFor = (c: Column<T>) => c.options || server?.options?.[c.key]
+    || [...new Set(rows.map((r) => String(val(c, r) ?? "")).filter(Boolean))].sort();
+  const activeFilters = Object.values(flt).filter((v) => v && v.trim()).length;
+
+  if (!rows.length && !hasFilters && !activeFilters) return <div className="empty">No rows</div>;
+  return (
+    <div>
+      <div className="table-wrap">
+        <table className="t">
+          <thead>
+            <tr>{columns.map((c) => {
+              const on = canSort && c.sortable !== false && !!c.label;
+              const dir = sort?.key === c.key ? sort.dir : null;
+              return (
+                <th key={c.key} className={c.num ? "num" : ""} style={{ width: c.width }}
+                    aria-sort={dir ? (dir === "asc" ? "ascending" : "descending") : undefined}>
+                  {on ? (
+                    <button className="th-sort" onClick={() => setSort(c.key)} title="Sort">
+                      {c.label}{dir === "asc" ? <ArrowUp size={11} /> : dir === "desc" ? <ArrowDown size={11} /> : <ArrowUpDown size={11} className="faint" />}
+                    </button>
+                  ) : c.label}
+                </th>
+              );
+            })}</tr>
+            {hasFilters && (
+              <tr className="filters">{columns.map((c) => (
+                <th key={c.key}>
+                  {c.filter === "select" ? (
+                    <select value={flt[c.key] || ""} onChange={(e) => setFilter(c.key, e.target.value)} aria-label={`Filter ${c.label}`}>
+                      <option value="">All</option>
+                      {optionsFor(c).map((o) => <option key={o} value={o}>{c.optionLabels?.[o] ?? o}</option>)}
+                    </select>
+                  ) : c.filter ? (
+                    <FilterInput value={flt[c.key] || ""} onChange={(v) => setFilter(c.key, v)} label={c.label}
+                                 placeholder={c.filter === "num" ? "≥ value" : "contains…"} />
+                  ) : null}
+                </th>
+              ))}</tr>
+            )}
+          </thead>
+          <tbody>
+            {shown.map((r, i) => (
+              <tr key={i} className={onRow ? "click" : ""} onClick={onRow ? () => onRow(r) : undefined}
+                  tabIndex={onRow ? 0 : undefined} onKeyDown={onRow ? (e) => e.key === "Enter" && onRow(r) : undefined}>
+                {columns.map((c) => <td key={c.key} className={c.num ? "num" : ""}>{c.render ? c.render(r) : String(r[c.key] ?? "—")}</td>)}
+              </tr>
+            ))}
+            {!shown.length && <tr><td colSpan={columns.length} className="empty">No rows match these filters</td></tr>}
+          </tbody>
+        </table>
+      </div>
+      {(size > 0 || server) && (
+        <div className="row between" style={{ marginTop: 8 }}>
+          <Pager page={page} pageSize={size || 5} total={total} setPage={setPage} />
+          {activeFilters > 0 && (
+            <button className="btn btn-ghost btn-sm" onClick={() => columns.forEach((c) => flt[c.key] && setFilter(c.key, ""))}>
+              Clear filters ({activeFilters})</button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -60,9 +235,9 @@ export function ChartCard<T extends Record<string, unknown>>({ title, sub, table
   );
 }
 
-export function Kpi({ label, value, unit, delta, deltaLabel, goodWhen = "up", accent, icon, hint }: {
+export function Kpi({ label, value, unit, delta, deltaLabel, goodWhen = "up", accent, icon, hint, tag }: {
   label: string; value: ReactNode; unit?: string; delta?: number | null; deltaLabel?: string;
-  goodWhen?: "up" | "down"; accent?: string; icon?: ReactNode; hint?: string;
+  goodWhen?: "up" | "down"; accent?: string; icon?: ReactNode; hint?: string; tag?: ReactNode;
 }) {
   let cls = "";
   if (delta !== undefined && delta !== null && delta !== 0) {
@@ -71,7 +246,7 @@ export function Kpi({ label, value, unit, delta, deltaLabel, goodWhen = "up", ac
   }
   return (
     <div className="card kpi" style={{ ["--accent" as string]: accent }} title={hint}>
-      <div className="k">{icon}{label}</div>
+      <div className="k">{icon}{label}{tag}</div>
       <div className="v">{value}{unit && value !== "—" && <small>{unit}</small>}</div>
       {(deltaLabel || delta !== undefined) && (
         <div className={`d ${cls}`}>
@@ -83,18 +258,38 @@ export function Kpi({ label, value, unit, delta, deltaLabel, goodWhen = "up", ac
   );
 }
 
-export function Loading({ label = "Loading…" }: { label?: string }) { return <div className="loading">{label}</div>; }
+export function Loading({ label = "Loading…" }: { label?: string }) {
+  return <div className="loading" role="status"><Loader2 size={14} className="spin" style={{ verticalAlign: -2, marginRight: 8 }} />{label}</div>;
+}
 
 export function ErrorBox({ error }: { error: unknown }) {
   const msg = error instanceof ApiError ? `${error.message} (HTTP ${error.status})` : String((error as Error)?.message || error);
   return <div className="error-box" role="alert"><AlertTriangle size={14} style={{ verticalAlign: -2, marginRight: 6 }} />{msg}</div>;
 }
 
-export function QueryState({ q, children }: { q: { isLoading: boolean; error: unknown; data: unknown; isPlaceholderData?: boolean }; children: (d: never) => ReactNode }) {
-  if (q.isLoading) return <Loading />;
+/** label: what is being computed, for views that take a few seconds (shown with a spinner). */
+export function QueryState({ q, children, label }: { q: { isLoading: boolean; error: unknown; data: unknown; isPlaceholderData?: boolean }; children: (d: never) => ReactNode; label?: string }) {
+  if (q.isLoading || (!q.data && !q.error)) return <Loading label={label} />;
   if (q.error && !q.data) return <ErrorBox error={q.error} />;
-  if (!q.data) return <Loading />;
-  return <div className={q.isPlaceholderData ? "stale" : ""}>{children(q.data as never)}</div>;
+  return (
+    <div className={q.isPlaceholderData ? "stale-wrap" : ""} aria-busy={q.isPlaceholderData || undefined}>
+      {q.isPlaceholderData && <div className="updating" role="status"><Loader2 size={12} className="spin" />Updating…</div>}
+      <div className={q.isPlaceholderData ? "stale" : ""}>{children(q.data as never)}</div>
+    </div>
+  );
+}
+
+/** Every dollar figure says which kind it is, so the pages never seem to disagree. */
+export const MONEY_KIND: Record<string, [string, string]> = {
+  realised: ["Realised", "Value of fixes already made, counting only what they caused (vs matched never-fixed devices)"],
+  planned: ["Planned", "Projected yearly value of the recommended fixes, if they are carried out"],
+  preventable: ["Preventable", "Yearly cost of these issues × the ticket reduction past fixes of the same kind achieved"],
+  proactive: ["Proactive", "Next week's forecast risk × the effect of the recommended fix, for the watchlist"],
+  naive: ["Naive", "Before vs after with no control group: overstates what the fix caused"],
+};
+export function MoneyChip({ kind }: { kind: keyof typeof MONEY_KIND }) {
+  const [label, tip] = MONEY_KIND[kind];
+  return <span className="chip money-chip" title={tip} aria-label={`${label}: ${tip}`}>{label}</span>;
 }
 
 export function SevBadge({ sev }: { sev: string }) {

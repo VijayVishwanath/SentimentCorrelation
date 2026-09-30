@@ -1,29 +1,33 @@
-import { Activity, Bot, Cpu, Database, Gauge, GitCompareArrows, LayoutDashboard, Moon, Radar, Settings, Stethoscope, Sun, TrendingUp, UploadCloud, X } from "lucide-react";
+import { Activity, Bot, Cpu, Database, Gauge, GitCompareArrows, LayoutDashboard, Moon, Radar, Settings, ShieldCheck, Stethoscope, Sun, TrendingUp, UploadCloud, Wallet, X } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { KeyRound } from "lucide-react";
 import { ReactNode, useEffect, useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { ApiError, getApiKey, setApiKey, useApi, useFilters, useMeta } from "../api";
 
-const NAV = [
+const NAV = [  // ordered as the story: see it, predict and diagnose it, fix it and prove it, then the evidence
   { section: "OVERVIEW" },
-  { to: "/", label: "Executive Dashboard", icon: LayoutDashboard, n: "" },
+  { to: "/", label: "Command Center", icon: LayoutDashboard, n: "" },
+  { section: "PREDICT & DIAGNOSE" },
   { to: "/proactive", label: "Proactive Watchlist", icon: Radar, n: "ML" },
-  { section: "MODULES" },
-  { to: "/experience", label: "Experience Analytics", icon: Activity, n: "M1" },
-  { to: "/telemetry", label: "Telemetry Intelligence", icon: Cpu, n: "M2" },
-  { to: "/correlation", label: "Correlation Engine", icon: GitCompareArrows, n: "M3" },
-  { to: "/diagnosis", label: "Diagnosis Assist", icon: Stethoscope, n: "M4" },
-  { to: "/copilot", label: "DEX Copilot", icon: Bot, n: "M5" },
-  { to: "/outcomes", label: "Outcome Reporting", icon: TrendingUp, n: "M6" },
-  { to: "/dex-score", label: "DEX Score", icon: Gauge, n: "M7" },
-  { to: "/upload", label: "Upload Dataset", icon: UploadCloud, n: "M8" },
+  { to: "/diagnosis", label: "Diagnosis Assist", icon: Stethoscope, n: "" },
+  { to: "/copilot", label: "DEX Copilot", icon: Bot, n: "AI" },
+  { section: "FIX & PROVE" },
+  { to: "/remediation", label: "Software Remediation", icon: ShieldCheck, n: "MCP" },
+  { to: "/outcomes", label: "Outcomes", icon: TrendingUp, n: "" },
+  { to: "/roi", label: "Value & Priorities", icon: Wallet, n: "ROI" },
+  { section: "EVIDENCE" },
+  { to: "/dex-score", label: "DEX Score", icon: Gauge, n: "" },
+  { to: "/experience", label: "Experience", icon: Activity, n: "" },
+  { to: "/telemetry", label: "Telemetry", icon: Cpu, n: "" },
+  { to: "/correlation", label: "Correlation", icon: GitCompareArrows, n: "" },
   { section: "ADMIN" },
+  { to: "/upload", label: "Upload Dataset", icon: UploadCloud, n: "" },
   { to: "/settings", label: "Data & Settings", icon: Settings, n: "" },
 ] as const;
 
 // Pages whose content honours the global filter row
-const FILTERED = ["/", "/experience", "/telemetry", "/correlation", "/dex-score"];
+const FILTERED = ["/", "/experience", "/telemetry", "/correlation", "/dex-score", "/roi"];
 
 function useTheme(): [string, () => void] {
   const [theme, setTheme] = useState<string>(() => {

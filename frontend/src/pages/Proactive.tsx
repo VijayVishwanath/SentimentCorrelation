@@ -3,7 +3,8 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Any, fmt, qsOf, useApi, useMeta } from "../api";
 import { Bars, TrendChart } from "../components/charts";
-import { Card, ChartCard, DataTable, Kpi, Meter, QueryState } from "../components/ui";
+import { FixNowButton } from "../components/FixNow";
+import { Card, ChartCard, DataTable, Kpi, Meter, MoneyChip, QueryState } from "../components/ui";
 
 export const RISK_COLOR: Record<string, string> = {
   High: "var(--critical)", Elevated: "var(--serious)", Watch: "var(--human)", Low: "var(--machine)",
@@ -62,11 +63,11 @@ export default function Proactive() {
             {meta.data?.dimensions?.departments?.map((d: string) => <option key={d}>{d}</option>)}
           </select>
           <div className="seg" role="group" aria-label="Watchlist size">
-            {[25, 50, 100].map((n) => <button key={n} className={top === n ? "on" : ""} onClick={() => setTop(n)}>Top {n}</button>)}
+            {[50, 100, 250, 500].map((n) => <button key={n} className={top === n ? "on" : ""} onClick={() => setTop(n)}>Top {n}</button>)}
           </div>
         </div>
       </div>
-      <QueryState q={q}>
+      <QueryState q={q} label="Scoring every device for next week…">
         {(d: Any) => !d.available ? (
           <Card title="Predictive model not available for this dataset">
             <p>{d.reason}</p>
@@ -88,7 +89,7 @@ export default function Proactive() {
                    accent="var(--human)" deltaLabel="sum of calibrated risk across the fleet" />
               <Kpi label="Caught a week early" icon={<Target size={12} />} value={fmt.pct(d.metrics.backtest.ml.recall_pct, 0)} accent="var(--machine)"
                    deltaLabel={`vs ${fmt.pct(d.metrics.backtest.rules.recall_pct, 0)} for rules · top 5% of devices`} />
-              <Kpi label={`Avoidable value · top ${d.summary.top_n}`} icon={<Wallet size={12} />} value={fmt.usd(d.summary.value_per_week_usd)} unit="/wk"
+              <Kpi label={`Avoidable value · top ${d.summary.top_n}`} tag={<MoneyChip kind="proactive" />} icon={<Wallet size={12} />} value={fmt.usd(d.summary.value_per_week_usd)} unit="/wk"
                    accent="var(--machine)" deltaLabel={`~${fmt.n(d.summary.avoidable_tickets_top_n)} tickets · ${fmt.usd(d.summary.value_annualised_usd)}/yr if sustained`}
                    hint={`risk × historical ticket-rate reduction of the recommended fix × ${fmt.usd(d.summary.cost_per_ticket_usd)} per ticket (support + lost productivity)`} />
             </div>
@@ -104,17 +105,21 @@ export default function Proactive() {
 
             <Card className="mt" title={`Proactive watchlist · week ${d.predicts_week}`}
                   sub={`as of week ${d.as_of_week}${d.as_of_week_start ? ` (${d.as_of_week_start})` : ""}; ranked by calibrated risk. Click a row for Device 360.`}>
-              <DataTable rows={d.items} onRow={(r: Any) => nav(`/devices/${r.device_id}`)} columns={[
-                { key: "device_id", label: "Device", render: (r: Any) => <b className="mono">{r.device_id}</b> },
-                { key: "employee_name", label: "Employee", render: (r: Any) => <span>{r.employee_name}<div className="faint" style={{ fontSize: 11 }}>{r.department} · {r.work_mode}</div></span> },
-                { key: "risk_pct", label: "Risk", width: "150px", render: (r: Any) => (
+              <DataTable rows={d.items} pageSize={5} sortable onRow={(r: Any) => nav(`/devices/${r.device_id}`)} columns={[
+                { key: "device_id", label: "Device", filter: "text", render: (r: Any) => <b className="mono">{r.device_id}</b> },
+                { key: "employee_name", label: "Employee", filter: "text", value: (r: Any) => `${r.employee_name} ${r.department} ${r.work_mode}`,
+                  render: (r: Any) => <span>{r.employee_name}<div className="faint" style={{ fontSize: 11 }}>{r.department} · {r.work_mode}</div></span> },
+                { key: "risk_pct", label: "Risk", width: "150px", filter: "num", render: (r: Any) => (
                   <Meter value={r.risk_pct} color={RISK_COLOR[r.band]} label={<span className="mono" style={{ fontSize: 12 }}>{fmt.pct(r.risk_pct, 0)}</span>} />) },
-                { key: "band", label: "Band", render: (r: Any) => <RiskBadge band={r.band} /> },
-                { key: "drivers", label: "Why", render: (r: Any) => (
+                { key: "band", label: "Band", filter: "select", options: ["High", "Elevated", "Watch", "Low"], render: (r: Any) => <RiskBadge band={r.band} /> },
+                { key: "drivers", label: "Why", sortable: false, filter: "text", value: (r: Any) => r.drivers.map((x: Any) => x.text).join(" "), render: (r: Any) => (
                   <div style={{ fontSize: 12, lineHeight: 1.45 }}>{r.drivers.slice(0, 2).map((x: Any) => <div key={x.group}>{x.text}</div>)}</div>) },
-                { key: "category", label: "Likely cause", render: (r: Any) => r.category || <span className="faint">Experience</span> },
-                { key: "action", label: "Proactive fix", render: (r: Any) => <span style={{ fontSize: 12 }}>{r.action}<div className="faint mono" style={{ fontSize: 10.5 }}>{r.kb_id}</div></span> },
-                { key: "avoidable_tickets", label: "Avoidable", num: true, render: (r: Any) => fmt.n(r.avoidable_tickets, 2) },
+                { key: "category", label: "Likely cause", filter: "select", value: (r: Any) => r.category || "Experience",
+                  render: (r: Any) => r.category || <span className="faint">Experience</span> },
+                { key: "action", label: "Proactive fix", filter: "text", render: (r: Any) => <span style={{ fontSize: 12 }}>{r.action}<div className="faint mono" style={{ fontSize: 10.5 }}>{r.kb_id}</div></span> },
+                { key: "avoidable_tickets", label: "Avoidable", num: true, filter: "num", render: (r: Any) => fmt.n(r.avoidable_tickets, 2) },
+                { key: "fix", label: "", sortable: false, render: (r: Any) => r.category
+                  ? <FixNowButton small label="Fix now" target={{ category: r.category, deviceIds: [r.device_id] }} /> : null },
               ]} />
             </Card>
 

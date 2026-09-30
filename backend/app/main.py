@@ -17,7 +17,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from . import __version__
-from .api import routes_admin, routes_ai, routes_analytics, routes_datasets
+from .api import routes_admin, routes_ai, routes_analytics, routes_datasets, routes_remediation
 from .api.deps import SafeJSONResponse, require_api_key
 from .config import get_settings
 from .data.store import init_store
@@ -51,6 +51,8 @@ def _warm_cache() -> None:
         ra.correlation_analysis(f, store, "frustration")
         ml.get_model(store)
         forecast.get_forecaster(store)  # predictive model: backtest + fit
+        ra.roi_critical_few(f, store)  # Pareto view reuses the outcome report and forecaster above
+        ra.command_center(f, store)  # landing page (also primes the outcome report behind Annual Benefits)
         log.info("cache warm-up complete")
     except Exception:
         log.exception("cache warm-up failed")
@@ -112,6 +114,7 @@ app.include_router(routes_analytics.router, prefix="/api/v1", tags=["analytics"]
 app.include_router(routes_ai.router, prefix="/api/v1", tags=["ai"], dependencies=secured)
 app.include_router(routes_admin.router, prefix="/api/v1", tags=["admin"], dependencies=secured)
 app.include_router(routes_datasets.router, prefix="/api/v1", tags=["datasets"], dependencies=secured)
+app.include_router(routes_remediation.router, prefix="/api/v1", tags=["remediation"], dependencies=secured)
 
 # ---- Serve the built React SPA (frontend/dist) from the same origin
 # Windows registries often map .js to text/plain, which browsers reject for module scripts.

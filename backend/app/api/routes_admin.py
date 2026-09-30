@@ -1,6 +1,8 @@
 """Admin API: health, metadata, business-assumption settings, dataset upload/reset."""
 from __future__ import annotations
 
+import threading
+
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from pydantic import BaseModel, Field
 
@@ -15,7 +17,9 @@ from .routes_analytics import clear_cache
 
 router = APIRouter(route_class=CleanRoute)
 
-EDITABLE = ("cost_per_ticket_usd", "hourly_employee_cost_usd", "productivity_loss_factor", "resolution_sla_hours")
+EDITABLE = ("cost_per_ticket_usd", "hourly_employee_cost_usd", "productivity_loss_factor", "resolution_sla_hours",
+            "working_days_per_year", "roi_minutes_saved_per_day", "roi_minutes_per_hang", "roi_boots_per_day",
+            "roi_unused_licenses", "annual_license_cost_usd", "roi_avoided_replacements", "device_cost_usd")
 
 
 class SettingsIn(BaseModel):
@@ -23,6 +27,15 @@ class SettingsIn(BaseModel):
     hourly_employee_cost_usd: float | None = Field(None, ge=0, le=10000)
     productivity_loss_factor: float | None = Field(None, ge=0, le=1)
     resolution_sla_hours: float | None = Field(None, gt=0, le=720)
+    working_days_per_year: float | None = Field(None, ge=1, le=366)
+    roi_minutes_saved_per_day: float | None = Field(None, ge=0, le=480)
+    roi_minutes_per_hang: float | None = Field(None, ge=0, le=240)
+    roi_boots_per_day: float | None = Field(None, ge=0, le=50)
+    roi_unused_licenses: float | None = Field(None, ge=0, le=10_000_000)
+    annual_license_cost_usd: float | None = Field(None, ge=0, le=100_000)
+    roi_avoided_replacements: float | None = Field(None, ge=0, le=10_000_000)
+    device_cost_usd: float | None = Field(None, ge=0, le=100_000)
+    reset: list[str] = Field(default_factory=list, description="settings to return to their default / data-derived value")
 
 
 @router.get("/meta", summary="Dataset version, dimensions and thresholds for UI filters")
@@ -39,11 +52,22 @@ def get_app_settings():
     return {k: cfg[k] for k in EDITABLE}
 
 
+def _rewarm() -> None:
+    """Recompute the heavy views in the background so the next page load after a change is not the slow one."""
+    from ..main import _warm_cache  # lazy: main imports this router
+    threading.Thread(target=_warm_cache, name="settings-rewarm", daemon=True).start()
+
+
 @router.put("/settings", summary="Update business-impact assumptions")
 def put_app_settings(body: SettingsIn):
-    values = {k: v for k, v in body.model_dump().items() if v is not None}
+    bad = [k for k in body.reset if k not in EDITABLE]
+    if bad:
+        raise HTTPException(422, f"unknown settings: {bad}")
+    values = {k: v for k, v in body.model_dump(exclude={"reset"}).items() if v is not None}
+    db.delete_setting_overrides(body.reset)
     db.put_setting_overrides(values)
     clear_cache()
+    _rewarm()
     return get_app_settings()
 
 
@@ -75,4 +99,5 @@ async def upload(file: UploadFile = File(...)):
 def reset():
     store_mod.init_store(force_seed=True)
     clear_cache()
+    _rewarm()
     return {"status": "reset", "dataset": db.latest_dataset_version()}

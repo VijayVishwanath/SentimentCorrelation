@@ -7,7 +7,7 @@ from typing import Literal
 
 import numpy as np
 import pandas as pd
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 
 from ..copilot.tools import effective_config, find_at_risk_devices
@@ -15,14 +15,16 @@ from ..data.store import DataStore
 from ..engines import correlation as corr
 from ..engines import dex_score, insights, outcomes
 from ..engines import telemetry as tel
-from ..engines.thresholds import CATEGORIES, THRESHOLDS, TELEMETRY_SIGNALS, signal_state
-from .deps import CleanRoute, Filters, filters, scoped, store_dep
+from ..engines.thresholds import (ACTION_BY_CATEGORY, CATEGORIES, CATEGORY_PRIMARY_SIGNAL, THRESHOLDS,
+                                  TELEMETRY_SIGNALS, signal_state)
+from .deps import CleanRoute, Filters, filters, scoped, store_dep, table_query
 
 router = APIRouter(route_class=CleanRoute)
 
 # --------------------------------------------------------------- memo cache
 _cache: dict = {}
 _cache_lock = threading.Lock()
+_generation = 0  # bumped by clear_cache: a result computed before a settings/data change is never stored
 
 
 def memo(store: DataStore, name: str, key: tuple, fn):
@@ -30,17 +32,21 @@ def memo(store: DataStore, name: str, key: tuple, fn):
     with _cache_lock:
         if k in _cache:
             return _cache[k]
+        gen = _generation
     val = fn()
     with _cache_lock:
-        if len(_cache) > 256:
-            _cache.clear()
-        _cache[k] = val
+        if gen == _generation:
+            if len(_cache) > 256:
+                _cache.clear()
+            _cache[k] = val
     return val
 
 
 def clear_cache() -> None:
+    global _generation
     with _cache_lock:
         _cache.clear()
+        _generation += 1
 
 
 def _sla() -> float:
@@ -113,6 +119,112 @@ def executive_dashboard(f: Filters = Depends(filters), store: DataStore = Depend
     return memo(store, "exec", f.key(), build)
 
 
+# --------------------------------------------------------------- command center
+# telemetry signal -> root-cause category whose runbook fixes it
+SIGNAL_CATEGORY = {sig: cat for cat, sig in CATEGORY_PRIMARY_SIGNAL.items()} | {"packet_loss": "Network",
+                                                                                  "battery": "Hardware", "disk": "Hardware"}
+
+
+def _action_plan(exec_d: dict, oc: dict, cfg: dict, total_devices: int, n_weeks: int, cost: float) -> list[dict]:
+    """Rank fixes by projected value: the top telemetry drivers, costed with the observed before/after
+    effect of the matching remediation category."""
+    by_cat = {c["category"]: c for c in oc.get("by_category") or []}
+    plan, seen = [], set()
+    for drv in exec_d["top_telemetry_drivers"]:
+        cat = SIGNAL_CATEGORY.get(drv["signal"])
+        if not cat or cat in seen:
+            continue
+        seen.add(cat)
+        eff = by_cat.get(cat, {})
+        reduction = outcomes.ticket_reduction_pct(eff)  # 0 when this fix type did not cut tickets
+        per_year = drv["excess_tickets"] / max(1, n_weeks) * 52 * reduction / 100
+        dex_gain = ((eff.get("dex_after") or 0) - (eff.get("dex_before") or 0)) * drv["devices_affected"] / max(1, total_devices)
+        plan.append({
+            "category": cat, "signal": drv["signal"], "problem": drv["label"], "devices_affected": drv["devices_affected"],
+            "excess_tickets": round(drv["excess_tickets"]), "avg_frustration": drv["avg_frustration"],
+            "action": eff.get("action") or ACTION_BY_CATEGORY[cat], "evidence_cases": eff.get("cases", 0),
+            "ticket_reduction_pct": round(reduction, 1), "tickets_avoided_per_year": round(per_year),
+            "savings_per_year_usd": round(per_year * cost), "dex_gain_pts": round(max(0.0, dex_gain), 1),
+        })
+    return sorted(plan, key=lambda a: a["savings_per_year_usd"], reverse=True)
+
+
+@router.get("/dashboard/command-center", summary="Outcome-first landing view: headline numbers and the next best actions")
+def command_center(f: Filters = Depends(filters), store: DataStore = Depends(store_dep)):
+    exec_d = executive_dashboard(f, store)
+
+    def build():
+        from ..engines import forecast
+        cfg = effective_config()
+        k = exec_d["kpis"]
+        oc = outcomes.outcome_report(store, cfg, department=f.department)
+        cost = outcomes.cost_per_ticket(store, cfg)
+        plan = _action_plan(exec_d, oc, cfg, exec_d["scope"]["devices"], len(exec_d["scope"]["weeks"]), cost)
+        wl = forecast.get_forecaster(store).watchlist(cfg, top=5, department=f.department)
+        top3 = plan[:3]
+        target = min(100.0, k["dex_score"] + sum(a["dex_gain_pts"] for a in top3))
+        agg = (oc.get("aggregate") or {}).get("ticket_rate") or {}
+        from ..engines import roi as roi_engine
+        ben = roi_engine.annual_benefits(store, cfg, f.department)
+        return {
+            "scope": exec_d["scope"], "filters": exec_d["filters"],
+            "headline": {
+                "dex_score": k["dex_score"], "dex_band": k["dex_band"], "dex_delta": k["dex_delta"],
+                "dex_target": round(target, 1),
+                "predicted": {"available": wl.get("available", False), "week": wl.get("predicts_week"),
+                              "frustrated_tickets": (wl.get("summary") or {}).get("expected_frustrated_tickets"),
+                              "devices_elevated": (wl.get("summary") or {}).get("flagged")},
+                "value": {"annual_savings_usd": k["business_impact_savings_usd"], "fixes": oc.get("cases"),
+                          "ticket_reduction_pct": outcomes.ticket_reduction_pct({"ticket_rate": agg}),
+                          "hours_recovered": (oc.get("business_impact") or {}).get("productivity_hours_recovered")},
+                "top_problem": plan[0] if plan else None,
+                "benefits": {k: ben[k] for k in ("total_usd", "data_backed_usd")}
+                            | {"components": [{"label": c["label"], "value_usd": c["value_usd"]} for c in ben["components"]]},
+            },
+            "trend": [{"week": t["week"], "dex_score": t["dex_score"], "avg_frustration": t["avg_frustration"]}
+                      for t in exec_d["dex_trend"]],
+            "actions": plan,
+            "roadmap": {"from": k["dex_score"], "to": round(target, 1), "levers": len(top3),
+                        "savings_per_year_usd": sum(a["savings_per_year_usd"] for a in top3),
+                        "tickets_avoided_per_year": sum(a["tickets_avoided_per_year"] for a in top3)},
+            "departments": [{"group": d["group"], "dex_score": d["dex_score"], "avg_frustration": d["avg_frustration"]}
+                            for d in exec_d["departments"]],
+            "watchlist": [{k2: i[k2] for k2 in ("device_id", "employee_name", "department", "risk_pct", "band",
+                                                 "category", "action")} for i in wl.get("items", [])],
+            "insights": [{"severity": i["severity"], "title": i["title"]} for i in exec_d["insights"][:4]],
+            "cost_per_ticket_usd": round(cost, 2),
+        }
+    return memo(store, "command", f.key(), build)
+
+
+# --------------------------------------------------------------- annual benefits (ROI)
+@router.get("/roi", summary="Annual Benefits: ticket cost + productivity + license + hardware refresh savings")
+def roi(f: Filters = Depends(filters), store: DataStore = Depends(store_dep),
+        scenario: Literal["realized", "with_plan"] = "realized",
+        tickets_avoided: float | None = Query(None, ge=0), cost_per_ticket_usd: float | None = Query(None, ge=0),
+        affected_employees: float | None = Query(None, ge=0), minutes_saved_per_day: float | None = Query(None, ge=0, le=480),
+        working_days_per_year: float | None = Query(None, ge=0, le=366),
+        hourly_employee_cost_usd: float | None = Query(None, ge=0), unused_licenses: float | None = Query(None, ge=0),
+        annual_license_cost_usd: float | None = Query(None, ge=0), avoided_replacements: float | None = Query(None, ge=0),
+        device_cost_usd: float | None = Query(None, ge=0)):
+    """Query values are what-if overrides for this view only; save defaults with PUT /settings."""
+    from ..engines import roi as roi_engine
+    plan = None
+    if scenario == "with_plan":
+        top3 = command_center(f, store)["actions"][:3]
+        plan = {"devices": sum(a["devices_affected"] for a in top3),
+                "tickets_avoided_per_year": sum(a["tickets_avoided_per_year"] for a in top3)}
+    overrides = {k: v for k, v in locals().items() if k in roi_engine.INPUT_KEYS and v is not None}
+    return roi_engine.annual_benefits(store, effective_config(), f.department, plan, overrides)
+
+
+@router.get("/roi/critical-few", summary="Pareto 80/20: the few issue types behind most of the impact, with priority score and ROI")
+def roi_critical_few(f: Filters = Depends(filters), store: DataStore = Depends(store_dep)):
+    from ..engines import pareto
+    return memo(store, "critical_few", f.key(), lambda: pareto.critical_few(
+        store, effective_config(), scoped(store, f)[1], f.department, outcome_report(None, f.department, store)))
+
+
 # --------------------------------------------------------------- experience
 @router.get("/experience/summary", summary="Module 1 — Experience Analytics summary")
 def experience_summary(f: Filters = Depends(filters), store: DataStore = Depends(store_dep)):
@@ -158,12 +270,19 @@ def experience_summary(f: Filters = Depends(filters), store: DataStore = Depends
     return memo(store, "exp", f.key(), build)
 
 
+TICKET_COLUMNS = {"ticket_id": "text", "device_id": "text", "employee_name": "text", "department": "enum",
+                  "week": "num", "channel": "enum", "category": "enum", "ticket_text": "text", "emotion": "enum",
+                  "severity": "enum", "frustration_score": "num", "outcome_status": "enum", "repeat_number": "num"}
+
+
 @router.get("/experience/tickets", summary="Search / page tickets with experience scores")
-def experience_tickets(f: Filters = Depends(filters), store: DataStore = Depends(store_dep),
+def experience_tickets(request: Request, f: Filters = Depends(filters), store: DataStore = Depends(store_dep),
                        severity: str | None = None, emotion: str | None = None, channel: str | None = None,
                        category: str | None = None, q: str | None = None, device_id: str | None = None,
                        sort: Literal["frustration", "week", "ticket_id"] = "frustration",
+                       sort_by: str | None = None, order: Literal["asc", "desc"] = "asc",
                        limit: int = Query(50, ge=1, le=500), offset: int = Query(0, ge=0)):
+    """Header sorting/filtering: sort_by + order, and f_<column> filters (see deps.table_query)."""
     _, tk = scoped(store, f)
     for col, val in (("severity", severity), ("emotion", emotion), ("channel", channel), ("category", category),
                      ("device_id", device_id)):
@@ -173,12 +292,32 @@ def experience_tickets(f: Filters = Depends(filters), store: DataStore = Depends
         tk = tk[tk["ticket_text"].str.contains(q, case=False, regex=False)
                 | tk["ticket_id"].str.contains(q, case=False, regex=False)
                 | tk["employee_name"].str.contains(q, case=False, regex=False)]
-    key = {"frustration": ["frustration_score", False], "week": ["week", False], "ticket_id": ["ticket_id", True]}[sort]
-    tk = tk.sort_values(key[0], ascending=key[1])
+    tk, options, sorted_ = table_query(tk, request.query_params, TICKET_COLUMNS)
+    if not sorted_:
+        key = {"frustration": ["frustration_score", False], "week": ["week", False], "ticket_id": ["ticket_id", True]}[sort]
+        tk = tk.sort_values(key[0], ascending=key[1])
     cols = ["ticket_id", "device_id", "employee_name", "department", "week", "date", "channel", "category",
             "repeat_contact", "repeat_number", "ticket_text", "resolution_time_hours", "outcome_status",
             "text_score", "frustration_score", "sentiment", "severity", "emotion", "telemetry_severity"]
-    return {"total": int(len(tk)), "offset": offset, "limit": limit, "items": tk[cols].iloc[offset:offset + limit]}
+    return {"total": int(len(tk)), "offset": offset, "limit": limit, "options": options,
+            "items": tk[cols].iloc[offset:offset + limit]}
+
+
+@router.get("/experience/tickets/{ticket_id}/explain", summary="How one ticket's frustration score was computed")
+def explain_ticket(ticket_id: str, store: DataStore = Depends(store_dep)):
+    from ..engines import experience as exp
+    tk = store.tickets_enriched
+    row = tk[tk["ticket_id"] == ticket_id]
+    if row.empty:
+        raise HTTPException(404, f"unknown ticket_id {ticket_id}")
+    r = row.iloc[0]
+    out = exp.explain(r["ticket_text"], int(r["prior_contacts"]), int(bool(r["escalated"])))
+    out["ticket"] = {k: r[k] for k in ("ticket_id", "device_id", "employee_name", "department", "week", "channel",
+                                       "category", "outcome_status", "repeat_number", "frustration_score")}
+    out["inputs"] = {"prior_contacts": int(r["prior_contacts"]), "escalated": bool(r["escalated"]),
+                     "reopened": bool(r["reopened"]),
+                     "prior_contacts_rule": "repeat number − 1, plus 1 if the ticket was reopened"}
+    return out
 
 
 # --------------------------------------------------------------- telemetry
@@ -242,11 +381,19 @@ def telemetry_summary(f: Filters = Depends(filters), store: DataStore = Depends(
     return memo(store, "tel", f.key(), build)
 
 
+DEVICE_COLUMNS = {"device_id": "text", "employee_name": "text", "department": "enum", "work_mode": "enum",
+                  "device_model": "enum", "device_health": "num", "health_band": "enum", "boot_duration_sec": "num",
+                  "network_latency_ms": "num", "app_hang_count": "num", "policy_compliant": "bool", "tickets": "num",
+                  "risk_score": "num", "remediated": "bool", "age_months": "num"}
+
+
 @router.get("/telemetry/devices", summary="Device list with latest vitals, health and DEX")
-def telemetry_devices(f: Filters = Depends(filters), store: DataStore = Depends(store_dep),
+def telemetry_devices(request: Request, f: Filters = Depends(filters), store: DataStore = Depends(store_dep),
                       q: str | None = None, band: str | None = None,
                       sort: Literal["risk", "health", "dex", "tickets", "device_id"] = "risk",
+                      sort_by: str | None = None, order: Literal["asc", "desc"] = "asc",
                       limit: int = Query(50, ge=1, le=300), offset: int = Query(0, ge=0)):
+    """Header sorting/filtering: sort_by + order, and f_<column> filters (see deps.table_query)."""
     def build():
         dw, tk = scoped(store, f)
         latest = _latest_per_device(dw).set_index("device_id")
@@ -280,10 +427,13 @@ def telemetry_devices(f: Filters = Depends(filters), store: DataStore = Depends(
         df = df[m]
     if band:
         df = df[df["health_band"] == band]
-    key = {"risk": ("risk_score", False), "health": ("avg_device_health", True), "dex": ("eei", True),
-           "tickets": ("tickets", False), "device_id": ("device_id", True)}[sort]
-    df = df.sort_values(key[0], ascending=key[1])
-    return {"total": int(len(df)), "offset": offset, "limit": limit, "items": df.iloc[offset:offset + limit]}
+    df, options, sorted_ = table_query(df, request.query_params, DEVICE_COLUMNS)
+    if not sorted_:
+        key = {"risk": ("risk_score", False), "health": ("avg_device_health", True), "dex": ("eei", True),
+               "tickets": ("tickets", False), "device_id": ("device_id", True)}[sort]
+        df = df.sort_values(key[0], ascending=key[1])
+    return {"total": int(len(df)), "offset": offset, "limit": limit, "options": options,
+            "items": df.iloc[offset:offset + limit]}
 
 
 @router.get("/devices/{device_id}", summary="Device 360: profile, weekly telemetry, tickets, remediations, DEX")
@@ -292,6 +442,8 @@ def device_detail(device_id: str, store: DataStore = Depends(store_dep)):
     if d is None:
         raise HTTPException(404, f"device {device_id} not found")
     h = store.device_history(device_id)
+    if h.empty:
+        raise HTTPException(404, f"no telemetry recorded yet for device {device_id}")
     tk = store.device_tickets(device_id).sort_values("week")
     rem = store.remediations[store.remediations["device_id"] == device_id]
     comp = dex_score.compute_components(h, tk, _sla())
@@ -379,6 +531,12 @@ def dex(f: Filters = Depends(filters), store: DataStore = Depends(store_dep)):
 
 
 # --------------------------------------------------------------- outcomes
+@router.get("/outcomes/uplift", summary="Causal uplift of fixes: difference-in-differences vs matched never-fixed devices")
+def outcome_uplift(category: str | None = None, department: str | None = None, store: DataStore = Depends(store_dep)):
+    from ..engines import uplift
+    return uplift.causal_uplift(store, category or None, department or None)
+
+
 @router.get("/outcomes", summary="Module 6 — Outcome Reporting (before vs after remediation)")
 def outcome_report(category: str | None = None, department: str | None = None, store: DataStore = Depends(store_dep)):
     known = sorted(set(CATEGORIES) | set(store.remediations["root_cause_category"].dropna()))

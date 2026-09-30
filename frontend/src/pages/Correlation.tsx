@@ -73,7 +73,7 @@ export default function Correlation() {
     <>
       <div className="page-head">
         <div>
-          <div className="eyebrow">Module 3 · Correlation Engine</div>
+          <div className="eyebrow">Correlation Engine</div>
           <h2>What's actually driving frustration</h2>
           <p>Subjective experience signals correlated with objective telemetry. Continuous signals use severity lift (worst vs best bucket);
             binary policy compliance uses incidence lift. Computed live from the dataset — not hardcoded.</p>

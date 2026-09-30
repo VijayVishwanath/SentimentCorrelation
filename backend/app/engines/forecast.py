@@ -22,6 +22,7 @@ import pandas as pd
 from sklearn.isotonic import IsotonicRegression
 from sklearn.metrics import average_precision_score, brier_score_loss, roc_auc_score
 
+from . import outcomes
 from .correlation import _breach
 from .diagnosis import SUBCAUSES, expected_outcome
 from .thresholds import ACTION_BY_CATEGORY, TELEMETRY_SIGNALS
@@ -276,9 +277,7 @@ class Forecaster:
         if department:
             keep = self.latest["device_id"].map(dev["department"]).eq(department).to_numpy()
             order = order[keep[order]]
-        res = self.store.tickets_enriched["resolution_time_hours"].astype(float)
-        cost = cfg["cost_per_ticket_usd"] + (float(res.mean()) if res.notna().any() else 0.0) \
-            * cfg["productivity_loss_factor"] * cfg["hourly_employee_cost_usd"]
+        cost = outcomes.cost_per_ticket(self.store, cfg)
         items = []
         for i in order[:top]:
             r = float(self.latest_risk[i])

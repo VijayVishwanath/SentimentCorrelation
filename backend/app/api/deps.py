@@ -98,5 +98,40 @@ def scoped(store: DataStore, f: Filters) -> tuple[pd.DataFrame, pd.DataFrame]:
     return dw, tk
 
 
+def table_query(df: pd.DataFrame, params, spec: dict[str, str]) -> tuple[pd.DataFrame, dict, bool]:
+    """Header sort + per-column filters for server-paged tables.
+
+    Query params: sort_by=<col>, order=asc|desc, f_<col>=<value>. Column kinds in `spec`:
+    text (case-insensitive contains), enum (equals), num (">=60", "<=40", "=3"; bare number means >=),
+    bool (true/false). Returns (filtered/sorted frame, enum options for the header dropdowns, sorted?).
+    """
+    options = {c: sorted(str(v) for v in df[c].dropna().unique()) for c, k in spec.items() if k == "enum" and c in df}
+    for col, kind in spec.items():
+        raw = (params.get(f"f_{col}") or "").strip()
+        if not raw or col not in df:
+            continue
+        s = df[col]
+        if kind == "text":
+            df = df[s.astype(str).str.contains(raw, case=False, regex=False, na=False)]
+        elif kind == "enum":
+            df = df[s.astype(str) == raw]
+        elif kind == "bool":
+            df = df[s.astype(bool) == (raw.lower() in ("true", "1", "yes"))]
+        elif kind == "num":
+            op = next((o for o in (">=", "<=", ">", "<", "=") if raw.startswith(o)), ">=")
+            try:
+                v = float(raw[len(op):] if raw.startswith(op) else raw)
+            except ValueError:
+                raise HTTPException(422, f"filter f_{col} must be a number, optionally prefixed with >=, <=, >, < or =")
+            num = pd.to_numeric(s, errors="coerce")
+            df = df[{">=": num >= v, "<=": num <= v, ">": num > v, "<": num < v, "=": num == v}[op]]
+    by = params.get("sort_by")
+    if by:
+        if by not in spec or by not in df:
+            raise HTTPException(422, f"cannot sort by {by!r}")
+        df = df.sort_values(by, ascending=params.get("order", "asc") != "desc", na_position="last", kind="stable")
+    return df, options, bool(by)
+
+
 def store_dep() -> DataStore:
     return get_store()

@@ -5,6 +5,8 @@ import {
   CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 import { TrendChart } from "../components/charts";
+import { ExplainButton } from "../components/Explain";
+import { FixNowButton } from "../components/FixNow";
 import { Card, ChartCard, DataTable, Meter, PrePost, QueryState, SevBadge, ChartTip } from "../components/ui";
 import { RISK_COLOR, RiskBadge } from "./Proactive";
 import { Vitals } from "./Diagnosis";
@@ -51,6 +53,7 @@ function RiskPanel({ id }: { id: string }) {
         <div style={{ fontSize: 13 }}>{c.action} <span className="faint mono">({c.kb_id})</span></div>
         {c.expected_outcome && <div className="note mt">Past {c.category} fixes ({c.expected_outcome.based_on_cases} cases): ticket rate
           −{fmt.pct(c.expected_outcome.ticket_rate_reduction_pct, 0)}, repeat contacts −{fmt.pct(c.expected_outcome.repeat_contact_reduction_pct, 0)}.</div>}
+        {c.category && <div className="mt"><FixNowButton label={`Fix ${id} before the call`} target={{ category: c.category, deviceIds: [id] }} /></div>}
       </Card>
       <ChartCard title="Risk history" sub="backtest weeks are out-of-time predictions; the last point is the live forecast"
                  table={r.history} columns={[{ key: "week", label: "As of week", num: true }, { key: "risk_pct", label: "Risk %", num: true },
@@ -116,7 +119,9 @@ export default function Device() {
                 { key: "week", label: "Week", num: true }, { key: "channel", label: "Channel" }, { key: "category", label: "Category" },
                 { key: "ticket_text", label: "Text" }, { key: "emotion", label: "Emotion" },
                 { key: "severity", label: "Severity", render: (r: Any) => <SevBadge sev={r.severity} /> },
-                { key: "frustration_score", label: "Frustration", num: true }, { key: "outcome_status", label: "Status" },
+                { key: "frustration_score", label: "Frustration", num: true, render: (r: Any) => (
+                  <ExplainButton source={{ ticketId: r.ticket_id }}><b className="mono">{r.frustration_score}</b></ExplainButton>) },
+                { key: "outcome_status", label: "Status" },
               ]} />
             </Card>
           </>

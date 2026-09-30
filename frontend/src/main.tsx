@@ -8,7 +8,7 @@ import "./styles.css";
 
 try { document.documentElement.setAttribute("data-theme", localStorage.getItem("dex.theme") || "dark"); } catch { /* ignore */ }
 
-const Executive = lazy(() => import("./pages/Executive"));
+const CommandCenter = lazy(() => import("./pages/CommandCenter"));
 const Experience = lazy(() => import("./pages/Experience"));
 const Telemetry = lazy(() => import("./pages/Telemetry"));
 const Correlation = lazy(() => import("./pages/Correlation"));
@@ -20,6 +20,8 @@ const Proactive = lazy(() => import("./pages/Proactive"));
 const Device = lazy(() => import("./pages/Device"));
 const SettingsPage = lazy(() => import("./pages/Settings"));
 const UploadPage = lazy(() => import("./pages/Upload"));
+const Remediation = lazy(() => import("./pages/Remediation"));
+const Roi = lazy(() => import("./pages/Roi"));
 
 const qc = new QueryClient({ defaultOptions: { queries: { refetchOnWindowFocus: false } } });
 
@@ -30,7 +32,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
         <Layout>
           <Suspense fallback={<Loading />}>
             <Routes>
-              <Route path="/" element={<Executive />} />
+              <Route path="/" element={<CommandCenter />} />
               <Route path="/experience" element={<Experience />} />
               <Route path="/telemetry" element={<Telemetry />} />
               <Route path="/correlation" element={<Correlation />} />
@@ -42,6 +44,8 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
               <Route path="/devices/:id" element={<Device />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/upload" element={<UploadPage />} />
+              <Route path="/remediation" element={<Remediation />} />
+              <Route path="/roi" element={<Roi />} />
               <Route path="*" element={<div className="empty">Page not found</div>} />
             </Routes>
           </Suspense>

@@ -1,9 +1,8 @@
 import { CheckCircle2 } from "lucide-react";
-import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Any, bandColor, fmt, qsOf, useApi, useFilters } from "../api";
 import { TrendChart } from "../components/charts";
-import { Card, ChartCard, DataTable, Kpi, QueryState } from "../components/ui";
+import { Card, ChartCard, DataTable, ErrorBox, Kpi, Loading, QueryState, useServerTable } from "../components/ui";
 
 const SMALL = [
   { key: "device_health", title: "Device Health Score", color: "var(--chart-machine)" },
@@ -14,53 +13,39 @@ const SMALL = [
   { key: "compliance_pct", title: "Policy compliance (%)", color: "var(--chart-machine)" },
 ];
 
+const YES_NO = ["true", "false"];
+
 function DeviceTable() {
   const { filters } = useFilters();
   const nav = useNavigate();
-  const [q, setQ] = useState("");
-  const [band, setBand] = useState("");
-  const [sort, setSort] = useState("risk");
-  const [page, setPage] = useState(0);
-  const limit = 15;
-  const res = useApi(`/v1/telemetry/devices${qsOf({ ...filters, q, band, sort, limit, offset: page * limit })}`);
+  const st = useServerTable(5);
+  const res = useApi(`/v1/telemetry/devices${qsOf({ ...filters, ...st.params })}`);
+  const d: Any = res.data;
   return (
-    <Card title="Device fleet" sub="latest-week vitals; risk = 60% telemetry severity + 40% frustration burden. Click a row for Device 360.">
-      <div className="row" style={{ marginBottom: 12 }}>
-        <input type="search" placeholder="Search device or employee…" value={q} onChange={(e) => { setQ(e.target.value); setPage(0); }} aria-label="Search devices" />
-        <select value={band} onChange={(e) => { setBand(e.target.value); setPage(0); }} aria-label="Health band"><option value="">All health bands</option><option>Healthy</option><option>Degraded</option><option>Poor</option></select>
-        <div className="seg" role="group" aria-label="Sort">
-          {[["risk", "Risk"], ["health", "Worst health"], ["tickets", "Tickets"], ["device_id", "ID"]].map(([k, l]) => (
-            <button key={k} className={sort === k ? "on" : ""} onClick={() => setSort(k)}>{l}</button>
-          ))}
+    <Card title="Device fleet" sub="latest-week vitals; risk = 60% telemetry severity + 40% frustration burden. Sort and filter from the headers; click a row for Device 360."
+          right={d && <span className="chip">{fmt.i(d.total)} devices</span>}>
+      {res.error && !d ? <ErrorBox error={res.error} /> : !d ? <Loading /> : (
+        <div className={res.isPlaceholderData ? "stale" : ""}>
+          <DataTable rows={d.items} onRow={(r: Any) => nav(`/devices/${r.device_id}`)}
+                     server={st.table(d.total, { ...d.options, health_band: ["Healthy", "Degraded", "Poor"] })} columns={[
+            { key: "device_id", label: "Device", filter: "text", render: (r: Any) => <b className="mono">{r.device_id}</b> },
+            { key: "employee_name", label: "Employee", filter: "text", render: (r: Any) => <span>{r.employee_name}<div className="faint" style={{ fontSize: 11 }}>{r.work_mode}</div></span> },
+            { key: "department", label: "Dept", filter: "select" },
+            { key: "device_model", label: "Model", filter: "select", render: (r: Any) => <span>{r.device_model}<div className="faint" style={{ fontSize: 11 }}>{r.age_months} months</div></span> },
+            { key: "health_band", label: "Band", filter: "select", render: (r: Any) => <span style={{ color: bandColor(r.health_band), fontWeight: 700 }}>{r.health_band}</span> },
+            { key: "device_health", label: "Health", num: true, filter: "num", render: (r: Any) => <span style={{ color: bandColor(r.health_band) }}>{fmt.n(r.device_health)}</span> },
+            { key: "boot_duration_sec", label: "Boot s", num: true, filter: "num" },
+            { key: "network_latency_ms", label: "Latency", num: true, filter: "num" },
+            { key: "app_hang_count", label: "Hangs", num: true, filter: "num" },
+            { key: "policy_compliant", label: "Policy", filter: "select", options: YES_NO, optionLabels: { true: "Compliant", false: "Non-compliant" },
+              render: (r: Any) => r.policy_compliant ? <span className="state-ok">Compliant</span> : <span className="state-critical">Non-compliant</span> },
+            { key: "tickets", label: "Tickets", num: true, filter: "num" },
+            { key: "risk_score", label: "Risk", num: true, filter: "num" },
+            { key: "remediated", label: "Fixed", filter: "select", options: YES_NO, optionLabels: { true: "Fixed", false: "Not fixed" },
+              render: (r: Any) => r.remediated ? <CheckCircle2 size={14} className="machine" aria-label="remediated" /> : "" },
+          ]} />
         </div>
-        {res.data && <span className="chip">{res.data.total} devices</span>}
-      </div>
-      <QueryState q={res}>
-        {(d: Any) => (
-          <>
-            <DataTable rows={d.items} onRow={(r: Any) => nav(`/devices/${r.device_id}`)} columns={[
-              { key: "device_id", label: "Device", render: (r: Any) => <b className="mono">{r.device_id}</b> },
-              { key: "employee_name", label: "Employee", render: (r: Any) => <span>{r.employee_name}<div className="faint" style={{ fontSize: 11 }}>{r.department} · {r.work_mode}</div></span> },
-              { key: "device_model", label: "Model", render: (r: Any) => <span>{r.device_model}<div className="faint" style={{ fontSize: 11 }}>{r.age_months} months</div></span> },
-              { key: "device_health", label: "Health", num: true, render: (r: Any) => <span style={{ color: bandColor(r.health_band) }}>{fmt.n(r.device_health)}</span> },
-              { key: "boot_duration_sec", label: "Boot s", num: true },
-              { key: "network_latency_ms", label: "Latency", num: true },
-              { key: "app_hang_count", label: "Hangs", num: true },
-              { key: "policy_compliant", label: "Policy", render: (r: Any) => r.policy_compliant ? <span className="state-ok">Compliant</span> : <span className="state-critical">Non-compliant</span> },
-              { key: "tickets", label: "Tickets", num: true },
-              { key: "risk_score", label: "Risk", num: true },
-              { key: "remediated", label: "Fixed", render: (r: Any) => r.remediated ? <CheckCircle2 size={14} className="machine" aria-label="remediated" /> : "" },
-            ]} />
-            <div className="row mt between">
-              <span className="note">Showing {d.total ? page * limit + 1 : 0}–{Math.min(d.total, (page + 1) * limit)} of {d.total}</span>
-              <div className="row">
-                <button className="btn btn-ghost btn-sm" disabled={page === 0} onClick={() => setPage(page - 1)}>Previous</button>
-                <button className="btn btn-ghost btn-sm" disabled={(page + 1) * limit >= d.total} onClick={() => setPage(page + 1)}>Next</button>
-              </div>
-            </div>
-          </>
-        )}
-      </QueryState>
+      )}
     </Card>
   );
 }
@@ -72,7 +57,7 @@ export default function Telemetry() {
     <>
       <div className="page-head">
         <div>
-          <div className="eyebrow">Module 2 · Telemetry Intelligence</div>
+          <div className="eyebrow">Telemetry Intelligence</div>
           <h2>What the devices are actually doing</h2>
           <p>Boot duration, application hangs, crash events, network latency and loss, VPN stability, policy compliance and
             hardware health — scored into a Device Health Score and a Telemetry Severity Score.</p>
@@ -104,12 +89,12 @@ export default function Telemetry() {
 
             <div className="grid g-split mt">
               <Card title="Threshold breaches" sub="device-weeks past warn / critical thresholds">
-                <DataTable rows={d.breaches} columns={[
-                  { key: "label", label: "Signal" },
-                  { key: "thresholds", label: "Warn / critical", render: (r: Any) => r.thresholds ? <span className="mono faint">{r.thresholds.warn} / {r.thresholds.critical}</span> : <span className="faint">binary</span> },
-                  { key: "warn", label: "Warn", num: true, render: (r: Any) => <span className="state-warn">{r.warn}</span> },
-                  { key: "critical", label: "Critical", num: true, render: (r: Any) => <span className="state-critical">{r.critical}</span> },
-                  { key: "devices_affected", label: "Devices", num: true },
+                <DataTable rows={d.breaches} pageSize={5} sortable columns={[
+                  { key: "label", label: "Signal", filter: "text" },
+                  { key: "thresholds", label: "Warn / critical", sortable: false, render: (r: Any) => r.thresholds ? <span className="mono faint">{r.thresholds.warn} / {r.thresholds.critical}</span> : <span className="faint">binary</span> },
+                  { key: "warn", label: "Warn", num: true, filter: "num", render: (r: Any) => <span className="state-warn">{r.warn}</span> },
+                  { key: "critical", label: "Critical", num: true, filter: "num", render: (r: Any) => <span className="state-critical">{r.critical}</span> },
+                  { key: "devices_affected", label: "Devices", num: true, filter: "num" },
                 ]} />
               </Card>
               <Card title="Fleet health bands" sub="latest week per device">
@@ -125,10 +110,10 @@ export default function Telemetry() {
                 })}
                 <div className="note">Healthy ≥ 80 · Degraded 65–80 · Poor &lt; 65 (Device Health Score)</div>
                 <h4 className="card-title mt-lg" style={{ marginBottom: 8 }}>By device model</h4>
-                <DataTable rows={d.by_model} columns={[
-                  { key: "device_model", label: "Model" }, { key: "devices", label: "Devices", num: true },
-                  { key: "device_health", label: "Health", num: true }, { key: "boot", label: "Boot s", num: true },
-                  { key: "tickets", label: "Tickets", num: true },
+                <DataTable rows={d.by_model} pageSize={5} sortable columns={[
+                  { key: "device_model", label: "Model", filter: "text" }, { key: "devices", label: "Devices", num: true, filter: "num" },
+                  { key: "device_health", label: "Health", num: true, filter: "num" }, { key: "boot", label: "Boot s", num: true, filter: "num" },
+                  { key: "tickets", label: "Tickets", num: true, filter: "num" },
                 ]} />
               </Card>
             </div>

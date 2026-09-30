@@ -53,6 +53,61 @@ app_settings = Table(
     Column("value", Text, nullable=False),
 )
 
+# ---- software remediation (app/remediation)
+remediation_emails = Table(
+    "remediation_emails", metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("message_id", String(255), nullable=False, unique=True),
+    Column("received_at", DateTime(timezone=True), nullable=False),
+    Column("sender", String(255), nullable=False),
+    Column("subject", Text, nullable=False),
+    Column("body", Text, nullable=False),
+    Column("attachments_json", Text, nullable=False, default="[]"),
+    Column("source", String(16), nullable=False),  # seed | submitted | imap
+    Column("status", String(16), nullable=False),  # pending | processed | rejected
+    Column("note", Text),
+)
+
+removed_installations = Table(
+    "removed_installations", metadata,
+    Column("installation_id", String(64), primary_key=True),
+    Column("removed_at", DateTime(timezone=True), nullable=False),
+    Column("run_id", String(32), nullable=False),
+)
+
+remediation_runs = Table(
+    "remediation_runs", metadata,
+    Column("run_id", String(32), primary_key=True),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+    Column("message_id", String(255)),
+    Column("software_name", String(255), nullable=False),
+    Column("software_version", String(64), nullable=False),
+    Column("dry_run", Integer, nullable=False),
+    Column("status", String(32), nullable=False),
+    Column("approved_by", String(255)),
+    Column("result_json", Text, nullable=False),
+)
+
+runbook_applications = Table(
+    "runbook_applications", metadata,
+    Column("device_id", String(32), primary_key=True),
+    Column("runbook_id", String(32), primary_key=True),
+    Column("run_id", String(32), nullable=False),
+    Column("applied_at", DateTime(timezone=True), nullable=False),
+)
+
+remediation_audit = Table(
+    "remediation_audit", metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+    Column("event", String(64), nullable=False),
+    Column("run_id", String(32)),
+    Column("actor", String(255)),
+    Column("payload_json", Text, nullable=False),
+    Column("prev_hash", String(64), nullable=False),
+    Column("hash", String(64), nullable=False),
+)
+
 RAW_TABLES = ["devices", "telemetry", "tickets", "remediations"]
 
 
@@ -143,6 +198,12 @@ def get_setting_overrides() -> dict:
     with get_engine().connect() as conn:
         rows = conn.execute(select(app_settings)).all()
     return {r.key: json.loads(r.value) for r in rows}
+
+
+def delete_setting_overrides(keys: list[str]) -> None:
+    if keys:
+        with get_engine().begin() as conn:
+            conn.execute(app_settings.delete().where(app_settings.c.key.in_(keys)))
 
 
 def put_setting_overrides(values: dict) -> None:

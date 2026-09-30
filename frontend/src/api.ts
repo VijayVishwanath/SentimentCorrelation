@@ -108,6 +108,9 @@ export const fmt = {
   i: (v: number | null | undefined) => (v === null || v === undefined ? "—" : Math.round(v).toLocaleString()),
   pct: (v: number | null | undefined, d = 1) => (v === null || v === undefined ? "—" : `${Number(v).toFixed(d)}%`),
   usd: (v: number | null | undefined) => (v === null || v === undefined ? "—" : `$${Math.round(v).toLocaleString()}`),
+  /** Compact currency for headline figures: $3.40M, $879K, $194. */
+  usdShort: (v: number | null | undefined) => (v === null || v === undefined ? "—"
+    : v >= 1e6 ? `$${(v / 1e6).toFixed(2)}M` : v >= 1e3 ? `$${Math.round(v / 1e3)}K` : `$${Math.round(v)}`),
   signed: (v: number | null | undefined, d = 1, suffix = "") => (v === null || v === undefined ? "—" : `${v > 0 ? "+" : ""}${Number(v).toFixed(d)}${suffix}`),
   x: (v: number | null | undefined) => (v === null || v === undefined ? "—" : `${(Math.round(v * 10 + 1e-9) / 10).toFixed(1)}×`),
 };

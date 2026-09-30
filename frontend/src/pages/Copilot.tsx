@@ -126,7 +126,7 @@ export default function Copilot() {
     <>
       <div className="page-head">
         <div>
-          <div className="eyebrow">Module 5 · DEX Copilot</div>
+          <div className="eyebrow">DEX Copilot</div>
           <h2>Ask about any ticket, device or the whole fleet</h2>
           <p>An agent that calls DEX Sentinel's engines as tools (diagnosis, telemetry, outcomes, fleet KPIs) and retrieves remediation
             runbooks, then answers in business language — every number traceable to a tool result.</p>

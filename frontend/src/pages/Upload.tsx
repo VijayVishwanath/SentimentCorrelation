@@ -109,7 +109,7 @@ function Result({ job }: { job: Any }) {
         <div>
           <div className="field">Explore the results</div>
           <div className="grid" style={{ gap: 6 }}>
-            {[["/", "Executive Dashboard"], ["/correlation", "Correlation Engine"], ["/experience", "Experience Analytics"],
+            {[["/", "Command Center"], ["/correlation", "Correlation Engine"], ["/experience", "Experience Analytics"],
               ["/telemetry", "Telemetry Intelligence"], ["/diagnosis", "Diagnosis Assist"], ["/outcomes", "Outcome Reporting"], ["/dex-score", "DEX Score"]].map(([to, l]) => (
               <Link key={to} to={to} className="card-flat row between" style={{ textDecoration: "none" }}><span>{l}</span><ArrowRight size={14} /></Link>
             ))}
@@ -242,7 +242,7 @@ export default function UploadPage() {
     <>
       <div className="page-head">
         <div>
-          <div className="eyebrow">Module 8 · Upload Dataset</div>
+          <div className="eyebrow">Upload Dataset</div>
           <h2>Analyse new real-time data</h2>
           <p>Upload fresh service-desk and endpoint-telemetry exports. DEX Sentinel validates and normalises them, re-runs
             sentiment scoring, telemetry correlation, diagnosis and outcome analytics, and refreshes every dashboard.</p>

@@ -1,13 +1,16 @@
 """Module 6 — Outcome Reporting.
 
 Before-vs-after remediation measurement. Two lenses:
-  1. The remediation register (46 cases, pre/post columns as supplied) —
-     reproduces the validated judge-briefing aggregates.
+  1. The remediation register (pre/post columns as supplied, or derived from telemetry and tickets
+     when an upload leaves them out).
   2. DEX Score before/after, recomputed from device-week telemetry and tickets
      with pre = weeks < remediation week, post = weeks >= remediation week
      (the windowing used to build the register).
 """
 from __future__ import annotations
+
+import json
+import threading
 
 import pandas as pd
 
@@ -54,8 +57,9 @@ def cohort_dex(store, rems: pd.DataFrame, sla: float) -> dict:
         return {"available": False}
     before = compute_components(pd.concat(parts_b_dw), pd.concat(parts_b_tk), sla)
     after = compute_components(pd.concat(parts_a_dw), pd.concat(parts_a_tk), sla)
-    return {"available": True, "before": before, "after": after,
-            "experience_recovery_pct": experience_recovery(before["dex_score"], after["dex_score"])}
+    b, a = before.get("dex_score"), after.get("dex_score")  # None when every fix sits at the first/last data week
+    return {"available": b is not None and a is not None, "before": before, "after": after,
+            "experience_recovery_pct": experience_recovery(b, a) if (a is not None and b) else None}
 
 
 def business_impact(rems: pd.DataFrame, tickets: pd.DataFrame, cfg: dict) -> dict:
@@ -81,7 +85,39 @@ def business_impact(rems: pd.DataFrame, tickets: pd.DataFrame, cfg: dict) -> dic
     }
 
 
+def ticket_reduction_pct(effect: dict | None) -> float:
+    """Observed ticket-rate reduction of a fix category, as a positive %; 0 when tickets did not fall."""
+    tr = (effect or {}).get("ticket_rate") or {}
+    return float(tr.get("change_pct") or 0.0) if tr.get("improved") else 0.0
+
+
+def cost_per_ticket(store, cfg: dict) -> float:
+    """Support handling cost plus the employee time lost while the ticket is open."""
+    res = store.tickets_enriched["resolution_time_hours"].astype(float)
+    return cfg["cost_per_ticket_usd"] + (float(res.mean()) if res.notna().any() else 0.0)         * cfg["productivity_loss_factor"] * cfg["hourly_employee_cost_usd"]
+
+
+_memo: dict = {}
+_memo_lock = threading.Lock()
+
+
 def outcome_report(store, cfg: dict, category: str | None = None, department: str | None = None) -> dict:
+    """Memoised per dataset + settings: several pages, the Copilot and the runbooks all need it, and it takes
+    seconds on a large fleet. Callers must treat the result as read-only."""
+    key = (id(store), category, department, json.dumps(cfg, sort_keys=True, default=str))
+    with _memo_lock:
+        hit = _memo.get(key)
+        if hit is not None and hit[0] is store:
+            return hit[1]
+    rep = _outcome_report(store, cfg, category, department)
+    with _memo_lock:
+        if len(_memo) > 64:
+            _memo.clear()
+        _memo[key] = (store, rep)
+    return rep
+
+
+def _outcome_report(store, cfg: dict, category: str | None, department: str | None) -> dict:
     rems = store.remediations
     if category:
         rems = rems[rems["root_cause_category"] == category]
@@ -114,9 +150,9 @@ def outcome_report(store, cfg: dict, category: str | None = None, department: st
         by_cat.append({"category": cat, "cases": int(len(g)), "action": g["action_taken"].mode().iat[0],
                        "frustration": _pair(g, "frustration"), "repeat_rate": _pair(g, "repeat_rate"),
                        "ticket_rate": _pair(g, "ticket_rate"),
-                       "dex_before": cd["before"]["dex_score"], "dex_after": cd["after"]["dex_score"],
+                       "dex_before": cd["before"].get("dex_score"), "dex_after": cd["after"].get("dex_score"),
                        "recovery_pct": cd["experience_recovery_pct"]})
-    by_cat.sort(key=lambda d: d["recovery_pct"], reverse=True)
+    by_cat.sort(key=lambda d: -1e9 if d["recovery_pct"] is None else d["recovery_pct"], reverse=True)
 
     cohort = cohort_dex(store, rems, sla)
     return {

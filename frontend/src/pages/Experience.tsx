@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
-import { Any, fmt, qsOf, sevColor, useApi, useFilters, useMeta, usePost } from "../api";
+import { Link, useSearchParams } from "react-router-dom";
+import { Any, fmt, qsOf, sevColor, useApi, useFilters, usePost } from "../api";
 import { Bars, TrendChart } from "../components/charts";
-import { Card, ChartCard, DataTable, ErrorBox, Kpi, Meter, QueryState, SevBadge } from "../components/ui";
+import { ExplainButton } from "../components/Explain";
+import { Card, ChartCard, DataTable, ErrorBox, Kpi, Loading, Meter, QueryState, SevBadge, useServerTable } from "../components/ui";
 
 const SEV_ORDER = ["Low", "Medium", "High", "Critical"];
 
@@ -13,7 +14,7 @@ function Analyzer() {
   const m = usePost<{ text: string; repeat_contacts: number; escalations: number }>("/v1/experience/analyze");
   const r: Any = m.data;
   return (
-    <Card title="Live sentiment & frustration analyser" sub="validated keyword lexicon (93.3% agreement with ground truth) + repeat/escalation boost">
+    <Card title="Live sentiment & frustration analyser" sub="keyword lexicon (93.3% agreement with the ground-truth tier on simulated tickets) + repeat/escalation boost">
       <label className="field" htmlFor="an-text">Ticket, call note or chat message</label>
       <textarea id="an-text" rows={3} value={text} onChange={(e) => setText(e.target.value)} />
       <div className="row mt">
@@ -38,6 +39,7 @@ function Analyzer() {
             {r.matched_phrases.length ? <>Matched: {r.matched_phrases.map((p: Any) => `“${p.phrase}” (+${p.weight})`).join(", ")}</> : "No frustration phrases matched (baseline 8)."}
             {(r.repeat_contacts || r.escalations) ? ` · behaviour boost +${r.repeat_contacts * 10 + r.escalations * 15}` : ""}
           </div>
+          <div className="mt"><ExplainButton source={{ text, repeat: rep, escalations: esc }}>How was this computed?</ExplainButton></div>
         </div>
       )}
     </Card>
@@ -46,44 +48,30 @@ function Analyzer() {
 
 function TicketExplorer() {
   const { filters } = useFilters();
-  const [f, setF] = useState({ severity: "", emotion: "", channel: "", q: "" });
-  const [page, setPage] = useState(0);
-  const meta = useMeta();
-  const limit = 12;
-  const q = useApi(`/v1/experience/tickets${qsOf({ ...filters, ...f, limit, offset: page * limit })}`);
-  const set = (patch: Partial<typeof f>) => { setF({ ...f, ...patch }); setPage(0); };
+  const st = useServerTable(5);
+  const q = useApi(`/v1/experience/tickets${qsOf({ ...filters, ...st.params })}`);
+  const d: Any = q.data;
   return (
-    <Card title="Ticket explorer" sub="every ticket scored — click a device for its 360 view">
-      <div className="row" style={{ marginBottom: 12 }}>
-        <input type="search" placeholder="Search text, ticket, employee…" value={f.q} onChange={(e) => set({ q: e.target.value })} style={{ minWidth: 240 }} aria-label="Search tickets" />
-        <select value={f.severity} onChange={(e) => set({ severity: e.target.value })} aria-label="Severity"><option value="">All severities</option>{SEV_ORDER.map((s) => <option key={s}>{s}</option>)}</select>
-        <select value={f.emotion} onChange={(e) => set({ emotion: e.target.value })} aria-label="Emotion"><option value="">All emotions</option>{["Anger", "Frustration", "Anxiety", "Inquiry", "Neutral"].map((s) => <option key={s}>{s}</option>)}</select>
-        <select value={f.channel} onChange={(e) => set({ channel: e.target.value })} aria-label="Channel"><option value="">All channels</option>{(meta.data?.dimensions.channels || []).map((s: string) => <option key={s}>{s}</option>)}</select>
-        {q.data && <span className="chip">{q.data.total} tickets</span>}
-      </div>
-      <QueryState q={q}>
-        {(d: Any) => (
-          <>
-            <DataTable rows={d.items} columns={[
-              { key: "ticket_id", label: "Ticket", render: (r: Any) => <span className="mono">{r.ticket_id}<div className="faint" style={{ fontSize: 11 }}>W{r.week} · {r.channel}</div></span> },
-              { key: "device_id", label: "Device", render: (r: Any) => <Link to={`/devices/${r.device_id}`}>{r.device_id}</Link> },
-              { key: "ticket_text", label: "Ticket language", render: (r: Any) => <span style={{ fontSize: 12.5 }}>{r.ticket_text}</span> },
-              { key: "category", label: "Category" },
-              { key: "emotion", label: "Emotion" },
-              { key: "severity", label: "Severity", render: (r: Any) => <SevBadge sev={r.severity} /> },
-              { key: "frustration_score", label: "Frustration", num: true },
-              { key: "outcome_status", label: "Status" },
-            ]} />
-            <div className="row mt between">
-              <span className="note">Showing {d.total ? page * limit + 1 : 0}–{Math.min(d.total, (page + 1) * limit)} of {d.total}</span>
-              <div className="row">
-                <button className="btn btn-ghost btn-sm" disabled={page === 0} onClick={() => setPage(page - 1)}>Previous</button>
-                <button className="btn btn-ghost btn-sm" disabled={(page + 1) * limit >= d.total} onClick={() => setPage(page + 1)}>Next</button>
-              </div>
-            </div>
-          </>
-        )}
-      </QueryState>
+    <Card title="Ticket explorer" sub="every ticket scored · sort and filter from the column headers · click a score to see how it was computed"
+          right={d && <span className="chip">{fmt.i(d.total)} tickets</span>}>
+      {q.error && !d ? <ErrorBox error={q.error} /> : !d ? <Loading /> : (
+        <div className={q.isPlaceholderData ? "stale" : ""}>
+          <DataTable rows={d.items} server={st.table(d.total, { ...d.options, severity: SEV_ORDER })} columns={[
+            { key: "ticket_id", label: "Ticket", filter: "text", render: (r: Any) => <span className="mono">{r.ticket_id}</span> },
+            { key: "week", label: "Week", num: true, filter: "num", render: (r: Any) => `W${r.week}` },
+            { key: "channel", label: "Channel", filter: "select" },
+            { key: "device_id", label: "Device", filter: "text", render: (r: Any) => <Link to={`/devices/${r.device_id}`}>{r.device_id}</Link> },
+            { key: "employee_name", label: "Employee", filter: "text" },
+            { key: "ticket_text", label: "Ticket language", filter: "text", render: (r: Any) => <span style={{ fontSize: 12.5 }}>{r.ticket_text}</span> },
+            { key: "category", label: "Category", filter: "select" },
+            { key: "emotion", label: "Emotion", filter: "select" },
+            { key: "severity", label: "Severity", filter: "select", render: (r: Any) => <SevBadge sev={r.severity} /> },
+            { key: "frustration_score", label: "Frustration", num: true, filter: "num", render: (r: Any) => (
+              <ExplainButton source={{ ticketId: r.ticket_id }}><b className="mono">{r.frustration_score}</b></ExplainButton>) },
+            { key: "outcome_status", label: "Status", filter: "select" },
+          ]} />
+        </div>
+      )}
     </Card>
   );
 }
@@ -91,15 +79,18 @@ function TicketExplorer() {
 export default function Experience() {
   const { qs } = useFilters();
   const q = useApi(`/v1/experience/summary${qs}`);
+  const [params] = useSearchParams();
+  const deep = params.get("explain");  // /experience?explain=<ticket_id> opens the score explanation directly
   return (
     <>
       <div className="page-head">
         <div>
-          <div className="eyebrow">Module 1 · Experience Analytics</div>
+          <div className="eyebrow">Experience Analytics</div>
           <h2>What employees are telling the service desk</h2>
           <p>Sentiment analysis, frustration scoring, emotion classification and experience severity across calls, chats,
-            portal tickets, repeat contacts and escalations.</p>
+            portal tickets, repeat contacts and escalations. Click any frustration score to see how it was computed.</p>
         </div>
+        {deep && <ExplainButton source={{ ticketId: deep }} defaultOpen>{deep}</ExplainButton>}
       </div>
       <QueryState q={q}>
         {(d: Any) => d.kpis.tickets === 0 ? <div className="empty">No tickets for this scope</div> : (
@@ -157,11 +148,11 @@ export default function Experience() {
             <div className="grid g-split mt">
               <Analyzer />
               <Card title="Top frustration language" sub="phrases weighted by the lexicon">
-                <DataTable rows={d.drivers.phrases} max={9} columns={[
-                  { key: "phrase", label: "Phrase", render: (r: Any) => <span>“{r.phrase}”</span> },
-                  { key: "weight", label: "Weight", num: true },
-                  { key: "tickets", label: "Tickets", num: true },
-                  { key: "avg_frustration", label: "Avg frustr.", num: true },
+                <DataTable rows={d.drivers.phrases} pageSize={5} sortable columns={[
+                  { key: "phrase", label: "Phrase", filter: "text", render: (r: Any) => <span>“{r.phrase}”</span> },
+                  { key: "weight", label: "Weight", num: true, filter: "num" },
+                  { key: "tickets", label: "Tickets", num: true, filter: "num" },
+                  { key: "avg_frustration", label: "Avg frustr.", num: true, filter: "num" },
                 ]} />
               </Card>
             </div>

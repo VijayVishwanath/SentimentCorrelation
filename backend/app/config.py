@@ -52,6 +52,30 @@ class Settings(BaseSettings):
     productivity_loss_factor: float = 0.5  # share of resolution time the employee is impaired
     resolution_sla_hours: float = 8.0
 
+    # Annual Benefits / ROI (engines/roi.py). None = derive from the data.
+    working_days_per_year: float = 230.0
+    roi_minutes_saved_per_day: float | None = None   # derived: ticket downtime + boot + hang time recovered
+    roi_minutes_per_hang: float = 3.0
+    roi_boots_per_day: float = 1.0
+    roi_unused_licenses: float | None = None         # None = 5% of the fleet (illustrative until SAM data is loaded)
+    annual_license_cost_usd: float = 150.0
+    roi_avoided_replacements: float | None = None    # derived: hardware fixes that repaired instead of replacing
+    device_cost_usd: float = 1200.0
+
+    # Software remediation (MCP email integration, app/remediation). Removal always runs against the
+    # simulated fleet inventory; nothing is uninstalled on the host running this code.
+    remediation_allowed_senders: list[str] = ["security-team@company.com", "it-compliance@company.com",
+                                              "vulnerability-scanner@company.com"]
+    remediation_service_account: str = "svc_software_removal"
+    remediation_token_ttl_sec: int = 1800
+    remediation_seed_inbox: bool = True  # demo emails in the built-in inbox on first use
+    # Optional IMAP mailbox polled by the email_monitor tool (password via DEX_IMAP_PASSWORD)
+    imap_host: str | None = None
+    imap_port: int = 993
+    imap_username: str | None = None
+    imap_password: str | None = None
+    imap_folder: str = "INBOX"
+
     # Static frontend build served by FastAPI
     frontend_dist: Path = PROJECT_ROOT / "frontend" / "dist"
 

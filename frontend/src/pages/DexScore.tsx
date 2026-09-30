@@ -38,7 +38,7 @@ export default function DexScore() {
     <>
       <div className="page-head">
         <div>
-          <div className="eyebrow">Module 7 · DEX Score framework</div>
+          <div className="eyebrow">DEX Score framework</div>
           <h2>One outcome number, fully decomposable</h2>
           <p>The DEX Score blends what employees feel, what devices do, and whether fixes stick — every component is computed
             from the data and explained below.</p>

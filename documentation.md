@@ -8,6 +8,8 @@
 > **What's new in this version: Predictive DEX ("Fix it before they call").** A LightGBM model forecasts next week's frustrated tickets from telemetry trends. It explains each prediction, recommends the runbook fix, and prices the tickets a proactive fix avoids. On a reproducible 5,000-device benchmark it catches **72%** of next-week frustrated tickets from the top 5% of devices, against **49%** for the rule-based score. See [9.9](#99-predictive-risk-model-fix-it-before-they-call) and [10.4](#104-predictive-model-evaluation).
 >
 > **Presenting to a jury?** The pitch, talk track and Q&A are in [docs/PITCH.md](docs/PITCH.md). **Presenting to engineers?** Architecture, the metrics catalogue with worked examples, and 34 technical FAQs are in [docs/TECHNICAL_BRIEF.md](docs/TECHNICAL_BRIEF.md).
+>
+> **Email-driven software removal:** an MCP server turns security-team emails into version-specific, human-approved removals on the simulated fleet, with rollback and a tamper-evident audit log. See [docs/REMEDIATION_MCP.md](docs/REMEDIATION_MCP.md).
 
 ---
 
@@ -969,6 +971,7 @@ DEXSentimentCorrelation/
 ├── docs/SOLUTION.md          hackathon solution write-up (vision → roadmap, demo story)
 ├── docs/PITCH.md             jury pitch: talk track, demo script, proof points, Q&A
 ├── docs/TECHNICAL_BRIEF.md   engineering brief: stack, architecture, metrics + worked examples, technical FAQ
+├── docs/REMEDIATION_MCP.md   software-remediation MCP server: tools, safety rules, demo inbox, config
 ├── run.ps1 / run.sh          one-command setup & launch
 ├── Dockerfile                container build
 ├── .env.example              configuration template

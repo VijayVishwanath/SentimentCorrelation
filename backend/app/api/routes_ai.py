@@ -51,6 +51,11 @@ def analyze(body: TextIn):
     return exp.analyze_text(body.text, body.repeat_contacts, body.escalations).as_dict()
 
 
+@router.post("/experience/explain", summary="Module 1 — step-by-step derivation of the frustration score for free text")
+def explain_text(body: TextIn):
+    return exp.explain(body.text, body.repeat_contacts, body.escalations)
+
+
 @router.post("/diagnosis", summary="Module 4 — Diagnosis Assist: ranked root causes, evidence, fix")
 def run_diagnosis(body: DiagnosisIn, store: DataStore = Depends(store_dep)):
     if store.device(body.device_id) is None:
