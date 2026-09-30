@@ -84,6 +84,21 @@ export default function SettingsPage() {
                   </tbody>
                 </table>
                 <div className="note mt">{m.root_cause.evaluation} · n = {m.root_cause.n}. {m.disclosure}</div>
+                <table className="t mt">
+                  <thead><tr><th>Next-week frustrated-ticket prediction</th><th className="num">Caught (top 5%)</th><th className="num">PR-AUC</th><th className="num">ROC-AUC</th></tr></thead>
+                  <tbody>
+                    {m.forecast.available ? (
+                      <>
+                        <tr><td>ML: LightGBM on telemetry trends + experience history</td><td className="num">{fmt.pct(m.forecast.backtest.ml.recall_pct)}</td>
+                          <td className="num">{fmt.n(m.forecast.backtest.ml.pr_auc, 3)}</td><td className="num">{fmt.n(m.forecast.backtest.ml.roc_auc, 3)}</td></tr>
+                        <tr><td>Rules: at-risk score (60% severity + 40% burden)</td><td className="num">{fmt.pct(m.forecast.backtest.rules.recall_pct)}</td>
+                          <td className="num">{fmt.n(m.forecast.backtest.rules.pr_auc, 3)}</td><td className="num">{fmt.n(m.forecast.backtest.rules.roc_auc, 3)}</td></tr>
+                      </>
+                    ) : <tr><td colSpan={4} className="faint">{m.forecast.reason}</td></tr>}
+                  </tbody>
+                </table>
+                {m.forecast.available && <div className="note mt">{m.forecast.backtest.method} · {fmt.i(m.forecast.backtest.positives)} frustrated tickets scored
+                  {m.forecast.low_sample ? " · low sample — indicative only" : ""}.</div>}
               </>
             )}
           </QueryState>

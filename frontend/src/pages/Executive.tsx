@@ -145,7 +145,8 @@ export default function Executive() {
                   </dl>
                 ) : <div className="empty">No remediations for this scope</div>}
               </Card>
-              <Card title="At-risk devices" sub={`highest telemetry severity + frustration burden, weeks ${d.at_risk.window_weeks}`}>
+              <Card title="At-risk devices" sub={`highest telemetry severity + frustration burden, weeks ${d.at_risk.window_weeks}`}
+                    right={<Link to="/proactive" className="note">Next-week ML forecast →</Link>}>
                 <DataTable rows={d.at_risk.devices} onRow={(r: Any) => nav(`/devices/${r.device_id}`)} columns={[
                   { key: "device_id", label: "Device", render: (r: Any) => <b>{r.device_id}</b> },
                   { key: "employee_name", label: "Employee", render: (r: Any) => <span>{r.employee_name}<div className="faint" style={{ fontSize: 11 }}>{r.department}</div></span> },

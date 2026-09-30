@@ -1,4 +1,4 @@
-import { Activity, Bot, Cpu, Database, Gauge, GitCompareArrows, LayoutDashboard, Moon, Settings, Stethoscope, Sun, TrendingUp, UploadCloud, X } from "lucide-react";
+import { Activity, Bot, Cpu, Database, Gauge, GitCompareArrows, LayoutDashboard, Moon, Radar, Settings, Stethoscope, Sun, TrendingUp, UploadCloud, X } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { KeyRound } from "lucide-react";
 import { ReactNode, useEffect, useState } from "react";
@@ -8,6 +8,7 @@ import { ApiError, getApiKey, setApiKey, useApi, useFilters, useMeta } from "../
 const NAV = [
   { section: "OVERVIEW" },
   { to: "/", label: "Executive Dashboard", icon: LayoutDashboard, n: "" },
+  { to: "/proactive", label: "Proactive Watchlist", icon: Radar, n: "ML" },
   { section: "MODULES" },
   { to: "/experience", label: "Experience Analytics", icon: Activity, n: "M1" },
   { to: "/telemetry", label: "Telemetry Intelligence", icon: Cpu, n: "M2" },

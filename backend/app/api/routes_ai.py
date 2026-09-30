@@ -1,4 +1,4 @@
-"""AI API: experience text analysis, Diagnosis Assist, ML second opinion, DEX Copilot, knowledge base."""
+"""AI API: experience text analysis, Diagnosis Assist, ML second opinion, predictive risk, DEX Copilot, knowledge base."""
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -8,9 +8,10 @@ from pydantic import BaseModel, Field
 from .. import db
 from ..copilot import agent
 from ..copilot.retriever import get_kb
+from ..copilot.tools import effective_config
 from ..data.store import DataStore
 from ..engines import experience as exp
-from ..engines import ml
+from ..engines import forecast, ml
 from ..engines.diagnosis import diagnose
 from .deps import CleanRoute, store_dep
 
@@ -77,12 +78,31 @@ def recent_diagnoses(limit: int = Query(20, ge=1, le=200)):
 @router.get("/models/metrics", summary="AI model evaluation: rule engine vs ML variants")
 def model_metrics(store: DataStore = Depends(store_dep)):
     m = ml.get_model(store)
-    return {"root_cause": m.metrics, "classes": m.classes_,
+    return {"root_cause": m.metrics, "classes": m.classes_, "forecast": forecast.get_forecaster(store).metrics,
             "sentiment_lexicon": {"validated_agreement_pct": 93.3,
                                   "note": "Agreement with the dataset's hidden ground-truth tier, measured during "
                                           "dataset construction (judge briefing). Ground truth is not shipped."},
             "disclosure": "Categories in the simulated dataset were seeded from telemetry and templated text, so "
                           "near-perfect accuracy here reflects separable synthetic data, not expected real-world accuracy."}
+
+
+@router.get("/forecast/watchlist", summary="Predictive DEX — devices most likely to raise a frustrated ticket next week")
+async def forecast_watchlist(top: int = Query(50, ge=1, le=500), department: str | None = None,
+                             store: DataStore = Depends(store_dep)):
+    fc = await run_in_threadpool(forecast.get_forecaster, store)  # first call trains (seconds on large fleets)
+    return fc.watchlist(effective_config(), top=top, department=department)
+
+
+@router.get("/forecast/metrics", summary="Predictive DEX — out-of-time backtest vs the rule baseline, drivers")
+async def forecast_metrics(store: DataStore = Depends(store_dep)):
+    return (await run_in_threadpool(forecast.get_forecaster, store)).metrics
+
+
+@router.get("/forecast/devices/{device_id}", summary="Predictive DEX — one device's risk history and explanation")
+async def forecast_device(device_id: str, store: DataStore = Depends(store_dep)):
+    if store.device(device_id) is None:
+        raise HTTPException(404, f"device {device_id} not found")
+    return (await run_in_threadpool(forecast.get_forecaster, store)).device(device_id)
 
 
 @router.post("/copilot/ask", summary="Module 5 — DEX Copilot (agentic, tool-grounded, RAG)")

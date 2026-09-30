@@ -73,6 +73,19 @@ def executive_insights(store, device_weeks: pd.DataFrame, tickets: pd.DataFrame,
                                   f"(assumptions editable in Settings).",
                         "metric": "total_annual_savings_usd", "value": bi["total_annual_savings_usd"]})
 
+    from .forecast import BANDS, get_forecaster
+    fc = get_forecaster(store)
+    if fc.available:
+        bt = fc.metrics["backtest"]
+        flagged = int((fc.latest_risk >= BANDS[1][0]).sum())
+        out.append({"type": "prediction", "severity": "high" if flagged else "info",
+                    "title": f"{flagged} devices likely to raise a frustrated ticket in week {fc.latest_week + 1}",
+                    "detail": f"The predictive model expects ~{float(fc.latest_risk.sum()):.0f} frustrated tickets "
+                              f"fleet-wide next week. In an out-of-time backtest it caught {bt['ml']['recall_pct']}% of "
+                              f"them a week early from the top 5% of devices, vs {bt['rules']['recall_pct']}% for the "
+                              f"rule-based at-risk score. Act on the Proactive watchlist before employees call.",
+                    "metric": "predicted_flagged_devices", "value": flagged})
+
     by_dept = []
     for dep, g in device_weeks.groupby("department"):
         c = dex_score.compute_components(g, tickets[tickets["department"] == dep], sla)

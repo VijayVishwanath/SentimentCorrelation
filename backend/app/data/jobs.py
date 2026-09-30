@@ -204,8 +204,9 @@ def _warm() -> None:
         ra.executive_dashboard(f, s)
         ra.outcome_report(None, None, s)
         ra.correlation_analysis(f, s, "frustration")
-        from ..engines import ml
+        from ..engines import forecast, ml
         ml.get_model(s)  # ML second opinion retrains off the critical path
+        forecast.get_forecaster(s)  # predictive model: backtest + fit
     except Exception:
         log.exception("post-upload warm-up failed")
 

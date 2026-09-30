@@ -16,6 +16,7 @@ const Diagnosis = lazy(() => import("./pages/Diagnosis"));
 const Copilot = lazy(() => import("./pages/Copilot"));
 const Outcomes = lazy(() => import("./pages/Outcomes"));
 const DexScore = lazy(() => import("./pages/DexScore"));
+const Proactive = lazy(() => import("./pages/Proactive"));
 const Device = lazy(() => import("./pages/Device"));
 const SettingsPage = lazy(() => import("./pages/Settings"));
 const UploadPage = lazy(() => import("./pages/Upload"));
@@ -37,6 +38,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
               <Route path="/copilot" element={<Copilot />} />
               <Route path="/outcomes" element={<Outcomes />} />
               <Route path="/dex-score" element={<DexScore />} />
+              <Route path="/proactive" element={<Proactive />} />
               <Route path="/devices/:id" element={<Device />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/upload" element={<UploadPage />} />

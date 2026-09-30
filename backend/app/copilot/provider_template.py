@@ -19,6 +19,18 @@ def _call(name: str, args: dict, trace: list[dict]) -> dict:
     return json.loads(out)
 
 
+def _prediction_block(pred: dict) -> str:
+    if not pred.get("available"):
+        return ""
+    bt = pred["model_backtest"]
+    lines = [f"{d['device_id']} ({d['employee_name']}) — {d['risk_pct']}% risk"
+             + (f"; {d['drivers'][0]}" if d["drivers"] else "") + f" → {d['action']}"
+             + (f" ({d['kb_id']})" if d.get("kb_id") else "") for d in pred["devices"][:3]]
+    return (f"\n\n**Predicted for week {pred['predicts_week']} (ML):** {pred['summary']['flagged']} devices at elevated "
+            f"risk of a frustrated ticket; in backtest the model caught {bt['ml_recall_pct']}% of them a week early "
+            f"vs {bt['rules_recall_pct']}% for the rule score.\n" + "\n".join(f"- {line}" for line in lines))
+
+
 def _steps(markdown: str) -> list[str]:
     return [re.sub(r"^\d+\.\s*", "", ln).strip() for ln in (markdown or "").splitlines() if re.match(r"^\d+\.", ln)]
 
@@ -125,7 +137,8 @@ class TemplateCopilot:
         f = _call("get_fleet_overview", {"department": dept}, trace) if dept else f_all
         risk = _call("find_at_risk_devices", {"department": dept, "limit": 5}, trace)
         oc = _call("get_remediation_outcomes", {}, trace)
-        drv = f["top_telemetry_drivers"][0] if f.get("top_telemetry_drivers") else None
+        pred = _call("predict_next_week_risk", {"department": dept, "limit": 3}, trace)
+        drv =f["top_telemetry_drivers"][0] if f.get("top_telemetry_drivers") else None
         worst = f_all["departments"][0] if f_all.get("departments") else None
         kb = _call("search_knowledge_base", {"query": (drv or {}).get("label", "outcome closure")}, trace)
         art = kb["results"][0] if kb.get("results") else None
@@ -140,7 +153,8 @@ class TemplateCopilot:
                   + (f"**Top telemetry driver:** {drv['label']} — {drv['excess_tickets']:.0f} excess tickets, "
                      f"avg frustration {drv['avg_frustration']}\n\n" if drv else "")
                   + (f"**Lowest-scoring department:** {worst['department']} (DEX {worst['dex_score']})\n\n" if worst and not dept else "")
-                  + "**Proactive candidates:**\n" + "\n".join(f"- {r}" for r in risk_lines))
+                  + "**Proactive candidates:**\n" + "\n".join(f"- {r}" for r in risk_lines)
+                  + _prediction_block(pred))
         return {
             "ticket_summary": f"Question: {question.strip()}" if question else "Fleet experience overview",
             "executive_summary": (f"{scope.capitalize()} DEX Score is {f['dex_score']} ({f['band']}). "
@@ -169,7 +183,8 @@ class TemplateCopilot:
                                 else "Business impact is calculated once remediation outcomes are available."),
             "confidence": 80 if corr["strength"] == "Strong" else 60,
             "answer": answer,
-            "citations": ["get_fleet_overview", "find_at_risk_devices", "remediation_outcomes"] + ([art["id"]] if art else []),
+            "citations": ["get_fleet_overview", "find_at_risk_devices", "remediation_outcomes"]
+                         + (["predict_next_week_risk"] if pred.get("available") else []) + ([art["id"]] if art else []),
         }
 
     def _device_only(self, question, prof, trace) -> dict:

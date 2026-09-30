@@ -4,7 +4,9 @@ import { Any, bandColor, fmt, qsOf, useApi } from "../api";
 import {
   CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
-import { Card, ChartCard, DataTable, PrePost, QueryState, SevBadge, ChartTip } from "../components/ui";
+import { TrendChart } from "../components/charts";
+import { Card, ChartCard, DataTable, Meter, PrePost, QueryState, SevBadge, ChartTip } from "../components/ui";
+import { RISK_COLOR, RiskBadge } from "./Proactive";
 import { Vitals } from "./Diagnosis";
 
 const CHARTS = [
@@ -29,6 +31,35 @@ function DeviceTrend({ data, k, human, remWeeks }: { data: Any[]; k: string; hum
         <Line isAnimationActive={false} type="linear" dataKey={k} stroke={color} strokeWidth={2} dot={{ r: 2.5, fill: color, strokeWidth: 0 }} activeDot={{ r: 5 }} name={k} />
       </LineChart>
     </ResponsiveContainer>
+  );
+}
+
+function RiskPanel({ id }: { id: string }) {
+  const q = useApi(`/v1/forecast/devices/${id}`);
+  const r = q.data;
+  if (!r?.available || !r.current) return null;
+  const c = r.current;
+  return (
+    <div className="grid g-split mt">
+      <Card title={`Next-week risk · W${c.predicts_week}`} sub="probability of a frustrated (High / Critical) ticket next week — predictive model"
+            right={<RiskBadge band={c.band} />}>
+        <Meter value={c.risk_pct} color={RISK_COLOR[c.band]} label={<b className="mono" style={{ fontSize: 18 }}>{fmt.pct(c.risk_pct, 0)}</b>} />
+        <h4 className="card-title mt" style={{ marginBottom: 6 }}>Why</h4>
+        {c.drivers.map((x: Any) => <div key={x.group} style={{ fontSize: 13, marginBottom: 4 }}>• {x.text}</div>)}
+        {!c.drivers.length && <div className="note">No driver is pushing risk above the fleet baseline.</div>}
+        <h4 className="card-title mt" style={{ marginBottom: 6 }}>Proactive fix</h4>
+        <div style={{ fontSize: 13 }}>{c.action} <span className="faint mono">({c.kb_id})</span></div>
+        {c.expected_outcome && <div className="note mt">Past {c.category} fixes ({c.expected_outcome.based_on_cases} cases): ticket rate
+          −{fmt.pct(c.expected_outcome.ticket_rate_reduction_pct, 0)}, repeat contacts −{fmt.pct(c.expected_outcome.repeat_contact_reduction_pct, 0)}.</div>}
+      </Card>
+      <ChartCard title="Risk history" sub="backtest weeks are out-of-time predictions; the last point is the live forecast"
+                 table={r.history} columns={[{ key: "week", label: "As of week", num: true }, { key: "risk_pct", label: "Risk %", num: true },
+                   { key: "actual_frustrated", label: "Frustrated next week?", render: (h: Any) => h.actual_frustrated === null ? "—" : h.actual_frustrated ? "Yes" : "No" },
+                   { key: "source", label: "Source" }]}>
+        <TrendChart data={r.history} series={[{ key: "risk_pct", name: "Risk %", color: "var(--chart-human)" }]} height={200}
+                    yDomain={[0, 100]} yFmt={(v) => `${v.toFixed(0)}%`} xFmt={(v) => `W${v}`} />
+      </ChartCard>
+    </div>
   );
 }
 
@@ -59,6 +90,7 @@ export default function Device() {
               </div>
             </div>
             <Card title="Latest vitals" sub={`week ${d.history[d.history.length - 1].week}`}><Vitals vitals={d.vitals} /></Card>
+            <RiskPanel id={d.device.device_id} />
             <div className="grid g-3 mt">
               {CHARTS.map((c) => (
                 <ChartCard key={c.key} title={c.title} sub={remWeeks.length ? "vertical line = remediation week" : "12-week history"}

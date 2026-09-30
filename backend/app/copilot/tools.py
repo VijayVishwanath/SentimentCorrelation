@@ -14,6 +14,7 @@ from ..data.store import get_store
 from ..engines import correlation as corr
 from ..engines import dex_score
 from ..engines import experience as exp
+from ..engines import forecast
 from ..engines import outcomes
 from ..engines import telemetry as tel
 from ..engines.diagnosis import diagnose
@@ -156,6 +157,22 @@ def find_at_risk_devices(department: str | None = None, limit: int = 5) -> dict:
          "risk_score": round(r.risk, 1)} for r in g.itertuples()]}
 
 
+def predict_next_week_risk(department: str | None = None, limit: int = 5) -> dict:
+    fc = forecast.get_forecaster(get_store())
+    w = fc.watchlist(effective_config(), top=max(1, min(int(limit or 5), 20)), department=department or None)
+    if not w["available"]:
+        return {"available": False, "reason": w["reason"]}
+    bt = fc.metrics["backtest"]
+    return {"available": True, "as_of_week": w["as_of_week"], "predicts_week": w["predicts_week"],
+            "summary": w["summary"],
+            "model_backtest": {"ml_recall_pct": bt["ml"]["recall_pct"], "rules_recall_pct": bt["rules"]["recall_pct"],
+                               "ml_roc_auc": bt["ml"]["roc_auc"], "operating_point": "top 5% of devices per week",
+                               "low_sample": fc.metrics["low_sample"]},
+            "devices": [{k: i[k] for k in ("device_id", "employee_name", "department", "risk_pct", "band", "category",
+                                           "action", "kb_id")} | {"drivers": [d["text"] for d in i["drivers"]]}
+                        for i in w["items"]]}
+
+
 TOOLS: list[Tool] = [
     Tool("score_ticket_text", "Score employee ticket/call/chat text for frustration (0-100), sentiment, emotion and "
          "severity, including repeat-contact and escalation boosts.",
@@ -181,6 +198,10 @@ TOOLS: list[Tool] = [
     Tool("find_at_risk_devices", "List devices with the highest combined telemetry severity and experience burden "
          "over the last 4 weeks (proactive remediation candidates).",
          _obj({"department": {"type": "string"}, "limit": {"type": "integer"}}, []), find_at_risk_devices),
+    Tool("predict_next_week_risk", "Predictive ML model: devices most likely to raise a frustrated ticket NEXT week "
+         "(before the employee calls), with calibrated risk %, the telemetry/experience drivers behind each "
+         "prediction, the recommended proactive fix and runbook, and backtest accuracy vs the rule baseline.",
+         _obj({"department": {"type": "string"}, "limit": {"type": "integer"}}, []), predict_next_week_risk),
 ]
 TOOLS_BY_NAME = {t.name: t for t in TOOLS}
 

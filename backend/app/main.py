@@ -43,13 +43,14 @@ def _warm_cache() -> None:
     from .api import routes_analytics as ra
     from .api.deps import Filters
     from .data.store import get_store
-    from .engines import ml
+    from .engines import forecast, ml
     try:
         store, f = get_store(), Filters()
         ra.executive_dashboard(f, store)
         ra.outcome_report(None, None, store)
         ra.correlation_analysis(f, store, "frustration")
         ml.get_model(store)
+        forecast.get_forecaster(store)  # predictive model: backtest + fit
         log.info("cache warm-up complete")
     except Exception:
         log.exception("cache warm-up failed")

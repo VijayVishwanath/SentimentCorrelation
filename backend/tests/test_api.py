@@ -12,6 +12,8 @@ GETS = [
     "/api/v1/correlation/heatmap?by=work_mode", "/api/v1/correlation/scatter?signal=latency", "/api/v1/dex-score",
     "/api/v1/outcomes", "/api/v1/outcomes?category=Hardware", "/api/v1/models/metrics", "/api/v1/copilot/status",
     "/api/v1/kb", "/api/v1/kb/search?q=battery", "/api/v1/kb/KB-NET-002", "/api/v1/settings",
+    "/api/v1/forecast/watchlist?top=10", "/api/v1/forecast/watchlist?department=Legal", "/api/v1/forecast/metrics",
+    "/api/v1/forecast/devices/DEV-0001",
 ]
 
 
