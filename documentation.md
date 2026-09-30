@@ -1,9 +1,13 @@
 # DEX Sentinel: Complete Application Documentation
 
 **Outcome-based Digital Employee Experience (DEX) analytics platform**
-*Correlates employee sentiment (tickets, calls, chats, repeat contacts) with endpoint telemetry (boot time, application hangs, network quality, policy state, hardware health) to improve diagnosis, remediation and outcome-based reporting.*
+*Correlates employee sentiment (tickets, calls, chats, repeat contacts) with endpoint telemetry (boot time, application hangs, network quality, policy state, hardware health) to improve diagnosis, remediation and outcome-based reporting, and uses machine learning to **predict which employees will have a frustrating week before they call**.*
 
 > **Data notice:** the bundled dataset is fully simulated. No real employee or endpoint data is used.
+
+> **What's new in this version: Predictive DEX ("Fix it before they call").** A LightGBM model forecasts next week's frustrated tickets from telemetry trends. It explains each prediction, recommends the runbook fix, and prices the tickets a proactive fix avoids. On a reproducible 5,000-device benchmark it catches **72%** of next-week frustrated tickets from the top 5% of devices, against **49%** for the rule-based score. See [9.9](#99-predictive-risk-model-fix-it-before-they-call) and [10.4](#104-predictive-model-evaluation).
+>
+> **Presenting to a jury?** The pitch, talk track and Q&A are in [docs/PITCH.md](docs/PITCH.md).
 
 ---
 
@@ -39,12 +43,13 @@ When an employee calls the IT service desk and says *"Outlook keeps crashing and
 - **What the employee says:** they are frustrated, and they describe a symptom.
 - **What their laptop is doing:** it has objective measurements such as 9 application hangs this week, a normal boot time and a compliant security policy.
 
-Most IT teams look at these two sources separately, or not at all. DEX Sentinel puts them side by side. It does four things:
+Most IT teams look at these two sources separately, or not at all. DEX Sentinel puts them side by side. It does five things:
 
 1. It **reads the employee's words** and scores how frustrated they are (0–100).
 2. It **reads the device's health data** and scores how badly the device is performing.
 3. It **correlates the two** to find which technical problems cause the most frustration, and on a single ticket, **which root cause is most likely**.
-4. After a fix, it **proves whether the experience actually improved**, using numbers rather than "the ticket was closed".
+4. It **predicts who will struggle next week**. A machine-learning model watches each device's telemetry drift, for example boot time creeping up 60 seconds over three weeks, and flags the employee *before* they pick up the phone. It shows why and which fix to apply.
+5. After a fix, it **proves whether the experience actually improved**, using numbers rather than "the ticket was closed".
 
 A single **DEX Score** (0–100) summarises all of this for leadership. Module 8 lets you upload your own fresh data, and every screen re-analyses automatically.
 
@@ -57,6 +62,7 @@ A single **DEX Score** (0–100) summarises all of this for leadership. Module 8
 | "My laptop is slow" can mean five different technical causes | Long troubleshooting calls, trial-and-error fixes, reassignments | Ranks the likely root cause in seconds, using the ticket text **and** the device telemetry |
 | Tickets close when the employee stops calling | Repeat contacts and hidden productivity loss | Measures the before/after on every fix: frustration, repeat contacts, ticket volume |
 | Leadership sees SLA and closure metrics only | Investment decisions aren't tied to employee experience | Reports an outcome-based DEX Score, Experience Recovery % and business value in dollars |
+| The service desk is reactive: it waits for the angry call | Employees lose hours before anyone knows; the first contact is already frustrated | **Predicts** next week's frustrated employees from telemetry trends and gives a ranked, explained, costed **Proactive Watchlist** |
 
 ---
 
@@ -78,6 +84,15 @@ A single **DEX Score** (0–100) summarises all of this for leadership. Module 8
 | **Experience Recovery %** | (DEX Score after fix − before) ÷ before × 100. |
 | **LLM** | Large Language Model, an AI that reads and writes natural language. Used optionally by the Copilot. |
 | **RAG** | Retrieval-Augmented Generation: the AI looks up relevant documents (runbooks) before answering. |
+| **Predictive risk** | The model's calibrated probability (0–100%) that a device's employee raises a *frustrated* ticket (frustration ≥ 60, i.e. High/Critical) **next week**. |
+| **Proactive Watchlist** | Devices ranked by predictive risk, each with its drivers, likely cause, recommended fix and avoidable tickets. |
+| **Driver** | A reason behind a prediction: the model's exact per-feature contributions, grouped into a readable signal (for example "Boot duration 108.9s, +61.3s over 3 wks"). |
+| **LightGBM** | A fast gradient-boosted decision-tree library, widely used for tabular machine learning. |
+| **Out-of-time backtest** | An honest test: train on weeks before *k*, predict week *k*, repeat for later weeks, so the model is only ever scored on weeks it has not seen. |
+| **Recall / precision @ top 5%** | If the desk acts on the top 5% of devices each week: recall is the share of all next-week frustrated tickets caught; precision is the share of flagged devices that really did raise one. |
+| **PR-AUC** | Ranking quality for rare events, from 0 to 1. Higher means true positives are concentrated at the top of the list. |
+| **Calibration** | Whether "30% risk" really happens about 30% of the time. Checked by grouping predictions into deciles. |
+| **Simulator** | `app.data.simulator`: generates large, seeded, realistic datasets in the upload schema for benchmarking. |
 
 ---
 
@@ -85,7 +100,8 @@ A single **DEX Score** (0–100) summarises all of this for leadership. Module 8
 
 | # | Module | What you get | Key outputs |
 |---|---|---|---|
-| — | **Executive Dashboard** | One-page leadership view | DEX Score, Experience Recovery %, Correlation Score, business savings, trends, top drivers, generated insights, at-risk devices |
+| — | **Executive Dashboard** | One-page leadership view | DEX Score, Experience Recovery %, Correlation Score, business savings, trends, top drivers, generated insights (including the predictive insight), at-risk devices |
+| ML | **Proactive Watchlist** *(new)* | Who will struggle next week, and what to do now | Calibrated next-week risk per device, risk band, top drivers, likely cause, recommended fix + runbook, avoidable tickets and $ value, ML-vs-rules backtest, driver importance, calibration chart |
 | M1 | **Experience Analytics** | What employees are saying | Frustration Score (0–100), sentiment, emotion (Anger / Frustration / Anxiety / Inquiry / Neutral), severity (Low / Medium / High / Critical), Employee Experience Index |
 | M2 | **Telemetry Intelligence** | What devices are doing | Device Health Score, Telemetry Severity Score, threshold breaches, fleet health bands, device list |
 | M3 | **Correlation Engine** | What's actually driving frustration | Correlation score, severity lift, compliance incidence lift, correlation matrix, risk heatmap, impact ranking, experience drivers |
@@ -94,7 +110,7 @@ A single **DEX Score** (0–100) summarises all of this for leadership. Module 8
 | M6 | **Outcome Reporting** | Did the fix work? | Before vs after frustration, repeat-contact rate, tickets/week, DEX Score, Experience Recovery %, $ value, CSV export |
 | M7 | **DEX Score** | The single outcome number, explained | Formula, 5 components, trends, cohort ranking, what-if simulator |
 | M8 | **Upload Dataset** | Analyse new real-time data | Upload .xlsx/.csv (up to 200 MB per file), **Submit for Analysis**, before/after comparison, all screens refreshed |
-| — | **Device 360** | Everything about one device | 12-week telemetry history with the fix week marked, tickets, remediations |
+| — | **Device 360** | Everything about one device | **Next-week risk panel** (risk %, why, proactive fix, risk history against what actually happened), telemetry history with the fix week marked, tickets, remediations |
 | — | **Data & Settings** | Administration | Business-impact assumptions, AI model evaluation, API key |
 
 ---
@@ -112,7 +128,8 @@ A single **DEX Score** (0–100) summarises all of this for leadership. Module 8
 | **pandas** | 3.0 | Data tables, joins, aggregations (the analytical store) |
 | **NumPy** | 2.5 | Vectorised numeric computation |
 | **SciPy** | 1.18 | Statistics: Pearson and Spearman correlation, p-values |
-| **scikit-learn** | 1.9 | Machine learning: TF-IDF text features, logistic regression, cross-validation |
+| **scikit-learn** | 1.9 | Machine learning: TF-IDF text features, logistic regression, cross-validation, isotonic calibration, evaluation metrics |
+| **LightGBM** | 4.7 | Gradient-boosted trees for the predictive risk model, with native per-prediction feature contributions |
 | **SQLAlchemy** | 2.1 | Database access (SQLite by default; Postgres-ready) |
 | **SQLite** | built into Python | Persists the dataset, dataset versions, audit logs and settings |
 | **openpyxl + python-calamine** | 3.1 / 0.8 | Reading Excel workbooks (calamine is about 9× faster for large files) |
@@ -144,6 +161,7 @@ A single **DEX Score** (0–100) summarises all of this for leadership. Module 8
 | Correlation analysis | Statistics | SciPy (Pearson, Spearman, t-test p-values), pandas |
 | Root-cause engine (primary) | Explainable rule fusion (65% telemetry / 35% text) | Pure Python / NumPy |
 | Root-cause second opinion | **Machine learning**: multinomial logistic regression on TF-IDF + telemetry features | scikit-learn |
+| **Predictive risk ("fix before they call")** | **Machine learning**: gradient-boosted trees on telemetry trends + experience history, with isotonic calibration and per-prediction driver explanations | LightGBM, scikit-learn |
 | Knowledge retrieval (RAG) | Okapi **BM25** ranking | Pure Python (no external service) |
 | DEX Copilot | **LLM agent** with tool calling and structured output | Claude (`claude-opus-5-5`) or Azure OpenAI; offline grounded template engine |
 
@@ -154,6 +172,8 @@ A single **DEX Score** (0–100) summarises all of this for leadership. Module 8
 | `run.ps1` / `run.sh` | One-command setup and launch (Windows / macOS / Linux) |
 | `Dockerfile` | Container build: Node builds the UI, Python (Hypercorn, HTTP/2) serves API + UI |
 | `deploy/gcp/` | Google Cloud Run deployment scripts (PowerShell + bash) and guide |
+| `python -m app.data.simulator` | Generates a large seeded dataset (for example 5,000 devices × 26 weeks) as CSVs ready for Module 8 upload |
+| ngrok | Optional: shares the local app with others (`ngrok http 5173`; Vite accepts `*.ngrok-free.app` hosts) |
 | Git | Version control (the repository is initialised in the project folder) |
 | Playwright + Microsoft Edge | End-to-end UI verification during development (not a runtime dependency) |
 
@@ -183,6 +203,7 @@ A single **DEX Score** (0–100) summarises all of this for leadership. Module 8
    ┌──────────────────────────────── ANALYTICS & AI ENGINES (engines/, copilot/) ──────────────────────────────┐
    │ M1 experience.py   M2 telemetry.py   M3 correlation.py   M4 diagnosis.py + ml.py                          │
    │ M5 copilot/ (agent + tools + BM25 RAG + LLM providers)   M6 outcomes.py   M7 dex_score.py   insights.py   │
+   │ ML forecast.py: next-week risk (LightGBM + calibration + drivers), retrained in the background            │
    └──────────────────────────────────────────────────┬───────────────────────────────────────────────────────┘
                                                       ▼
                 ┌──────────────── REST API  (FastAPI, /api/v1, api/*.py) ──────────────────┐
@@ -190,7 +211,7 @@ A single **DEX Score** (0–100) summarises all of this for leadership. Module 8
                 └───────────────────────────────────┬──────────────────────────────────────┘
                                                     ▼  HTTP / JSON
                 ┌──────────── WEB UI  (React + TypeScript + Recharts, frontend/) ───────────┐
-                │ Executive Dashboard · M1–M8 screens · Device 360 · Settings              │
+                │ Executive · Proactive Watchlist · M1–M8 · Device 360 · Settings          │
                 └──────────────────────────────────────────────────────────────────────────┘
                           optional ▲ HTTPS
                 ┌─────────────────┴─────────────────┐
@@ -220,10 +241,11 @@ flowchart TB
             M6["M6 Outcomes"]
             M7["M7 DEX Score"]
             INS["Executive insights"]
+            FC["Predictive risk<br/>forecast.py (LightGBM)"]
         end
         subgraph Copilot["M5 DEX Copilot"]
             AG["Agent orchestrator"]
-            TOOLS["7 tools over the engines"]
+            TOOLS["8 tools over the engines"]
             RAG["BM25 retriever<br/>22 runbooks"]
             TPL["Grounded template engine"]
         end
@@ -236,7 +258,7 @@ flowchart TB
     end
 
     subgraph Frontend["Frontend — React / TypeScript"]
-        UI["Dashboard · M1–M8 · Device 360 · Settings"]
+        UI["Dashboard · Proactive Watchlist · M1–M8 · Device 360 · Settings"]
     end
 
     XLSX --> ING
@@ -245,6 +267,7 @@ flowchart TB
     STORE <--> DB
     STORE --> M1 & M2 --> M3
     STORE --> M4 & M6 & M7 & INS
+    STORE --> FC --> INS
     M1 --> M4
     M2 --> M4
     AG --> TOOLS --> Engines
@@ -264,7 +287,8 @@ flowchart TB
 | **Ingestion** | Turns messy real-world files into clean tables; reports what it changed | `backend/app/data/loader.py`, `schemas.py` |
 | **Analytical store** | Holds the analysis-ready tables in memory, with fast per-device lookups | `backend/app/data/store.py` |
 | **Persistence** | Saves dataset, versions, diagnosis and Copilot audit logs, settings | `backend/app/db.py` (SQLite by default) |
-| **Engines** | All scoring, correlation, diagnosis, outcomes, DEX Score | `backend/app/engines/*.py` |
+| **Engines** | All scoring, correlation, diagnosis, outcomes, DEX Score, predictive risk | `backend/app/engines/*.py` (`forecast.py` for prediction) |
+| **Simulator** | Large seeded datasets for benchmarking and demos | `backend/app/data/simulator.py` |
 | **Copilot** | Agent, tool registry, RAG, LLM providers, offline template | `backend/app/copilot/*.py`, `copilot/kb/*.md` |
 | **API** | HTTP endpoints, validation, security, caching, background jobs | `backend/app/api/*.py`, `main.py`, `data/jobs.py` |
 | **UI** | Screens, charts, filters, upload experience | `frontend/src/**` |
@@ -350,8 +374,9 @@ flowchart LR
     D --> E["5 · Join each ticket to<br/>its device's telemetry"]
     E --> F["6 · Correlate experience<br/>with telemetry (M3)"]
     F --> G["7 · Outcomes & DEX Score<br/>(M6, M7) + insights"]
-    G --> H["8 · Dashboards & screens"]
-    H --> I["9 · Diagnose a ticket (M4)<br/>or ask Copilot (M5)"]
+    G --> P["7b · Predict next week's<br/>frustrated employees (ML)"]
+    P --> H["8 · Dashboards & screens"]
+    H --> I["9 · Act proactively on the watchlist,<br/>diagnose a ticket (M4) or ask Copilot (M5)"]
     I --> J["10 · Fix applied → upload<br/>new data (M8) → measure recovery"]
     J --> B
 ```
@@ -378,8 +403,9 @@ flowchart LR
    - the impact ranking
    - the language that drives frustration (experience drivers)
 8. **Outcomes and DEX Score (M6, M7).** Before/after metrics are calculated for each remediation, then the DEX Score for any group and window, Experience Recovery %, business value and the executive insights.
+   - **Prediction (ML).** For every device-week the forecaster builds trend features from weeks up to and including that week. It backtests itself out-of-time against the rule score, trains LightGBM on all labelled weeks, calibrates the risk, and scores the latest week to produce next week's watchlist. This runs in the background at start-up and after every upload.
 9. **Presentation.** The React UI calls the API. Results are cached, and the global filters (department, device model, work mode, week range) re-scope every analytics screen.
-10. **Action.** An analyst diagnoses a ticket (M4) or asks the Copilot (M5), applies the recommended fix, then uploads new data (M8). Outcome Reporting shows whether the experience recovered.
+10. **Action.** An analyst works the Proactive Watchlist before employees call, diagnoses a ticket (M4) or asks the Copilot (M5), applies the recommended fix, then uploads new data (M8). Outcome Reporting shows whether the experience recovered.
 
 ### 8.3 Diagnosis flow (Module 4)
 
@@ -417,7 +443,7 @@ sequenceDiagram
     User->>UI: Question (+ optional device & ticket)
     UI->>AG: POST /api/v1/copilot/ask
     alt LLM key configured
-        AG->>LLM: system prompt + question + 7 tool definitions + JSON schema
+        AG->>LLM: system prompt + question + 8 tool definitions + JSON schema
         loop up to 8 steps
             LLM->>AG: tool call (e.g. diagnose_ticket)
             AG->>T: run tool on live data
@@ -465,6 +491,29 @@ sequenceDiagram
     end
     UI->>UI: Invalidate all cached data → every screen refreshes
 ```
+
+### 8.6 Predictive flow: "fix it before they call"
+
+```mermaid
+flowchart LR
+    DW["Device-week facts<br/>(telemetry + tickets)"] --> FE["Features at week t<br/>(only weeks ≤ t)"]
+    FE --> BT["Rolling-origin backtest<br/>ML vs rule score"]
+    BT --> CAL["Isotonic calibration<br/>on out-of-time predictions"]
+    FE --> FIT["LightGBM fit on<br/>all labelled weeks"]
+    FIT --> SC["Score latest week"]
+    CAL --> SC
+    SC --> EX["Per-device drivers<br/>(exact contributions)"]
+    EX --> REC["Likely cause → fix + runbook<br/>+ expected outcome + $ value"]
+    REC --> WL["Proactive Watchlist<br/>Device 360 risk panel"]
+    REC --> CP["Copilot tool<br/>predict_next_week_risk"]
+    SC --> IN["Executive insight"]
+```
+
+1. The label for week *t* is "did this device raise a frustrated ticket (frustration ≥ 60) in week *t + 1*?" The latest week has no label; it is the week being forecast.
+2. The backtest trains on weeks before *k*, scores week *k*, and repeats for the last six weeks. The rule-based at-risk score is scored on the same weeks, so the two are compared fairly.
+3. Out-of-time predictions fit an isotonic calibrator, so the risk % reads as a real probability.
+4. The final model is trained on every labelled week and scores the latest week. For each device the top positive contributions become human-readable **drivers**.
+5. The strongest telemetry driver maps to a likely category, fix and runbook. The historical ticket-rate reduction for that category, times the risk and the cost per ticket, gives the **avoidable value**.
 
 ---
 
@@ -605,6 +654,7 @@ Generated sentences, each tied to a metric:
 - remediation recovery
 - annualised value
 - the lowest-scoring department
+- **predictive:** "N devices likely to raise a frustrated ticket in week W", with the backtest recall against the rules
 
 ### 9.8 Handling real-world uploads (M8)
 
@@ -617,6 +667,32 @@ Generated sentences, each tied to a metric:
 - Devices derived from IDs; remediation before/after metrics calculated from the data.
 - Status values normalised ("Closed" becomes Resolved).
 - Unmeasured signals skipped.
+
+### 9.9 Predictive risk model ("fix it before they call")
+
+**Question answered:** *which employees will raise a frustrated (High/Critical) ticket next week, and what should we fix today to stop it?*
+
+| Aspect | Detail |
+|---|---|
+| **Target** | 1 if the device raises a ticket with frustration ≥ 60 in week *t + 1*, else 0 |
+| **Telemetry features** (8 signals: boot, hangs, latency, packet loss, non-compliance, hardware, battery, disk) | For each signal: current value, change vs last week, change vs the 3-week trailing mean, 4-week slope, weeks breached in the last 4 |
+| **Experience features** | Tickets now and over the last 4 weeks, peak frustration (now and 4-week), repeat contacts and escalations (4-week), weeks since the last ticket, weeks since the last fix |
+| **Device profile** | Age in months, work mode, department, device model (native categoricals) |
+| **Deliberately excluded** | The composite Telemetry Severity and Device Health scores. They are functions of the raw signals, and keeping them would credit "severity" instead of naming the signal that actually moved |
+| **No leakage** | Every feature at week *t* uses only weeks ≤ *t*. An automated test changes all future weeks and asserts that the features are unchanged |
+| **Model** | LightGBM classifier (250 trees, learning rate 0.05, 31 leaves, row and column subsampling) |
+| **Calibration** | Isotonic regression fitted on the out-of-time backtest predictions |
+| **Explanation** | LightGBM `pred_contrib`: exact per-feature contributions (they sum to the model's raw score), grouped by signal into drivers with plain-language text |
+| **Recommended fix** | Strongest positive telemetry driver → category and runbook (boot → KB-PERF-001, disk → KB-HW-002, latency → KB-NET-001, packet loss → KB-NET-002, non-compliance → KB-AUTH-001, hardware → KB-HW-003, battery → KB-HW-001, hangs → KB-APP-001). With no telemetry driver: a proactive check-in (KB-GEN-001) |
+| **Risk bands** | High ≥ 50% · Elevated ≥ 25% · Watch ≥ 10% · Low |
+| **Guardrails** | Needs ≥ 6 weeks and ≥ 30 frustrated tickets, otherwise it explains why it is unavailable. A **low-sample** banner appears when the backtest has fewer than 200 positives |
+| **Retraining** | Automatic in the background at start-up and after each upload (about 30 s for 5,000 devices × 26 weeks) |
+
+```
+avoidable tickets (device) = risk × ticket-rate reduction of past fixes in that category
+cost per ticket            = cost_per_ticket_usd + avg resolution hours × productivity_loss_factor × hourly_employee_cost_usd
+value per week (top N)     = Σ avoidable tickets × cost per ticket      (× 52 for "if sustained")
+```
 - Every derivation is listed for the user.
 
 ---
@@ -628,7 +704,7 @@ Generated sentences, each tied to a metric:
 | Question | Answer |
 |---|---|
 | **Is an LLM used for sentiment scoring or correlation?** | **No.** Sentiment is a validated, explainable keyword lexicon; correlation is classical statistics (Pearson, Spearman, lift). Every number is reproducible and auditable. |
-| **Is machine learning used?** | **Yes**, as a **second opinion** for root cause: multinomial **logistic regression** on **TF-IDF** text features plus standardised telemetry features (scikit-learn). The explainable rule engine stays primary. |
+| **Is machine learning used?** | **Yes, in two places.** (1) **Predictive risk**: a **LightGBM** model forecasts next week's frustrated tickets from telemetry trends, with calibrated risk and per-device explanations. It is measured against the rule baseline in an out-of-time backtest ([10.4](#104-predictive-model-evaluation)). (2) A **second opinion** for root cause: multinomial **logistic regression** on **TF-IDF** text plus standardised telemetry (scikit-learn). The explainable rule engine stays primary for diagnosis. |
 | **Is an LLM used anywhere?** | **Yes, optionally, in DEX Copilot (M5)** to write business-language answers. It must call the app's tools to get every number. |
 | **Which LLM?** | **Anthropic Claude**, model **`claude-opus-5-5`** (default when `ANTHROPIC_API_KEY` is set), or **Azure OpenAI** (your deployment). |
 | **What if there's no LLM key?** | The Copilot uses the **grounded template engine**, which calls the same tools and returns the same answer format. The whole app works offline. |
@@ -650,13 +726,31 @@ Generated sentences, each tied to a metric:
 | Aspect | Detail |
 |---|---|
 | Pattern | **Agentic tool use**: the LLM decides which tools to call, up to 8 steps |
-| Tools (7) | `score_ticket_text`, `get_device_profile`, `diagnose_ticket`, `search_knowledge_base`, `get_remediation_outcomes`, `get_fleet_overview`, `find_at_risk_devices` |
+| Tools (8) | `score_ticket_text`, `get_device_profile`, `diagnose_ticket`, `search_knowledge_base`, `get_remediation_outcomes`, `get_fleet_overview`, `find_at_risk_devices`, **`predict_next_week_risk`** (ML watchlist with drivers, fix and backtest accuracy; the offline template engine uses it too) |
 | Grounding rule | System prompt: every number must come from a tool result; correlation isn't causation; the data is simulated |
 | Output | **Structured JSON** (schema-enforced) with 12 fields: ticket summary, executive summary, primary driver, root-cause explanation, supporting evidence, recommended fix, remediation steps, expected outcome, business impact, confidence, answer, citations |
 | RAG | 22 remediation runbooks (Markdown) ranked with **BM25**, boosted when the category or sub-cause matches; the answer cites article IDs such as KB-APP-003 |
 | Claude settings | Model `claude-opus-5-5`, effort `medium`, prompt caching on the system prompt, server-side refusal fallbacks enabled |
 | Failover | Authentication, rate-limit, network, refusal or malformed output triggers the grounded template engine automatically, and the UI shows why |
 | Audit | Every Copilot call is logged (provider, question, answer, latency) |
+
+### 10.4 Predictive model evaluation
+
+**Benchmark (reproducible):** 5,000 devices × 26 weeks generated with `python -m app.data.simulator --devices 5000 --weeks 26 --seed 7`, uploaded through Module 8. Rolling-origin backtest over weeks 20–25 (30,000 device-weeks, 820 frustrated tickets, base rate 2.2%). Operating point: act on the **top 5% of devices each week**.
+
+| Metric | ML (LightGBM) | Rules (current at-risk score) | Lift |
+|---|---|---|---|
+| **Next-week frustrated tickets caught** (recall @ top 5%) | **72.3%** | 48.8% | **1.48×** |
+| Precision of flagged devices | **39.5%** | 26.7% | 1.48× |
+| PR-AUC | **0.455** | 0.250 | 1.8× |
+| ROC-AUC | **0.957** | 0.929 | — |
+| Brier score (calibrated) | 0.018 | — | — |
+
+- **Calibration:** predicted and observed rates match by decile (top decile 25.6% predicted vs 25.6% observed).
+- **For comparison, a plain threshold rule** (any signal past warn) flags 13.5% of devices at only 18.7% precision.
+- **Live example from the benchmark:** 185 devices at elevated risk for week 27, about 106 frustrated tickets expected fleet-wide, and a top-50 watchlist worth about **$3,699 per week (~$192k/yr if sustained)** at the default cost assumptions.
+- **Another dataset (2,600 devices):** 32.6% vs 16.8% caught, about **2× the rules**. The lift holds even where absolute numbers differ.
+- **Honest disclosure:** the data is simulated, with a hidden latent degradation state and a per-employee tolerance the model cannot see. The benchmark proves the method, not real-world accuracy. The bundled 260-device sample is flagged **low sample**.
 
 ---
 
@@ -666,7 +760,8 @@ Open the app (see [section 15](#15-installing-and-running)). Use the **filter ro
 
 | Screen | What you see | How to use it |
 |---|---|---|
-| **Executive Dashboard** | DEX Score with its five components, Experience Recovery, business value, Correlation Score, at-risk devices, DEX and frustration trends, top telemetry and language drivers, generated insights, department ranking, before/after summary | Start here. Click an at-risk device to open its Device 360. |
+| **Executive Dashboard** | DEX Score with its five components, Experience Recovery, business value, Correlation Score, at-risk devices, DEX and frustration trends, top telemetry and language drivers, generated insights (including "N devices likely to raise a frustrated ticket next week"), department ranking, before/after summary | Start here. Click an at-risk device to open its Device 360, or **Next-week ML forecast →** for the watchlist. |
+| **Proactive Watchlist** *(new)* | KPIs (devices at elevated risk, expected frustrated tickets, share caught a week early vs rules, avoidable value), the ML-vs-rules backtest, driver importance, the ranked watchlist (risk, band, why, likely cause, proactive fix + runbook, avoidable tickets), calibration chart | Filter by department and choose Top 25/50/100. Click a device to see its risk history and fix. |
 | **M1 Experience Analytics** | Ticket KPIs, frustration by week, severity, emotion, the repeat-contact ladder (frustration rises with each repeat), channel/category breakdowns, a live text analyser, a ticket explorer | Paste any text into the analyser to see its score and which phrases fired. |
 | **M2 Telemetry Intelligence** | Device health KPIs, weekly signal trends, threshold breaches, health bands, device model comparison, a searchable device fleet table | Sort by risk to find devices to fix proactively. |
 | **M3 Correlation Engine** | Correlation score, lift cards, frustration by severity bucket, compliance incidence, impact ranking, correlation matrix, risk and frustration heatmaps, scatter with trend line | Switch the score basis; change the heatmap grouping; pick a signal for the scatter. |
@@ -675,8 +770,8 @@ Open the app (see [section 15](#15-installing-and-running)). Use the **filter ro
 | **M6 Outcome Reporting** | Experience Recovery, cases improved, value, before/after KPIs, DEX by root cause, business impact, the case register | Filter by root cause; **Export CSV**. |
 | **M7 DEX Score** | Formula and definitions, what-if simulator, component trends, cohort ranking | Move the sliders to see how improving a component changes the score. |
 | **M8 Upload Dataset** | Upload area, active dataset card, stage-by-stage progress, before/after comparison, derivations, column guide with CSV templates, upload history | Drop files, choose **Replace** or **Append**, click **Submit for Analysis**. |
-| **Device 360** | Latest vitals; 12-week charts with the fix week marked; remediations with before/after; ticket history | Click **Diagnose latest ticket**. |
-| **Data & Settings** | Dataset summary, business-impact assumptions, AI model evaluation, Copilot status, API key | Adjust the cost assumptions; the business value recalculates. |
+| **Device 360** | Latest vitals; **next-week risk** (risk %, why, proactive fix, expected outcome) and **risk history** (out-of-time predictions against whether a frustrated ticket actually followed); weekly charts with the fix week marked; remediations with before/after; ticket history | Click **Diagnose latest ticket**. |
+| **Data & Settings** | Dataset summary, business-impact assumptions, AI model evaluation (root-cause models **and** the predictive model vs rules), Copilot status, API key | Adjust the cost assumptions; business value and watchlist value recalculate. |
 
 ---
 
@@ -700,7 +795,10 @@ Base URL: `http://<host>:<port>/api`. Interactive documentation: **`/docs`**. If
 | GET | `/v1/correlation/scatter` | Ticket scatter (`signal=…`) |
 | POST | `/v1/diagnosis` | M4 diagnosis |
 | GET | `/v1/diagnosis/recent` | Diagnosis audit log |
-| GET | `/v1/models/metrics` | ML and rule-engine evaluation |
+| GET | `/v1/models/metrics` | ML and rule-engine evaluation (now includes `forecast`) |
+| GET | `/v1/forecast/watchlist` | **Predictive** watchlist for next week (`top` 1–500, `department`): summary, ranked devices with drivers, fix, value, and model metrics |
+| GET | `/v1/forecast/metrics` | Backtest (ML vs rules), calibration deciles, driver importance |
+| GET | `/v1/forecast/devices/{device_id}` | One device's current risk + explanation and its risk history |
 | POST | `/v1/copilot/ask` | M5 Copilot |
 | GET | `/v1/copilot/status` | Active LLM provider |
 | GET | `/v1/kb`, `/v1/kb/search`, `/v1/kb/{id}` | Runbooks |
@@ -730,14 +828,16 @@ The Python engines reproduce every figure published in the original judge briefi
 | Remediation outcomes (46 cases) | frustration 69.0 → 58.2; repeat contacts 46.8% → 0.7%; tickets/week 0.41 → 0.15; 45/46 improved |
 | Briefing example ticket | 62/100 High; Application Crash 100% |
 
-### 13.2 Automated tests (68)
+### 13.2 Automated tests (81)
 
 | Suite | Covers |
 |---|---|
 | `test_golden.py` | All published figures above |
 | `test_engines.py` | Lexicon, negation, severity tiers, emotion, device health, fusion, DEX formula, Recovery % (52 → 78 = 50%), repeat logic |
-| `test_api.py` | Every endpoint, validation errors, settings, upload limits, API-key enforcement, Copilot schema, **mocked Claude tool-use loop**, refusal fallback |
+| `test_api.py` | Every endpoint including the three `/forecast/*` routes, validation errors, settings, upload limits, API-key enforcement, Copilot schema, **mocked Claude tool-use loop**, refusal fallback |
 | `test_upload.py` | Real-world style CSV (aliases, dates, daily roll-up, no categories), append mode, limits (type, size, mode), failed uploads leave live data untouched, restore sample |
+| `test_forecast.py` *(new)* | **No leakage** (changing future weeks leaves features unchanged), label = next-week frustration, low-sample and too-little-history guardrails, **ML beats the rule baseline out-of-time** (ROC-AUC, PR-AUC, recall), contributions sum exactly to the model score, watchlist ranking and explanations |
+| `test_simulator.py` *(new)* | Deterministic by seed, correct row counts, output passes upload validation |
 
 Run them with `.\run.ps1 -Test`.
 
@@ -745,6 +845,16 @@ Run them with `.\run.ps1 -Test`.
 
 - **Browser test** (Microsoft Edge driven by Playwright): invalid file rejected, then upload, **Submit for Analysis**, and results shown. Dashboard, correlation and telemetry all reflect the new data, the sample restores, and there are no page errors.
 - **Scale test:** a **163 MB** upload (2.34 million device-weeks, 120,000 tickets) is analysed and live in about **80 seconds**. Each screen's first view at that size takes 3–14 s, then is cached.
+- **Predictive benchmark:** the 5,000-device × 26-week simulated fleet (130,000 device-weeks, 6,080 tickets, 1,305 remediations) uploads and publishes in about 33 s. The forecaster then backtests and trains in the background in about 30 s, and the watchlist, Device 360 risk panel, Executive insight and Copilot tool were each verified end to end.
+
+**Reproduce the benchmark:**
+
+```powershell
+cd backend
+..\.venv\Scripts\python -m app.data.simulator --devices 5000 --weeks 26 --seed 7 --out ..\data\sim
+# then open Upload Dataset, drop devices.csv, telemetry.csv, tickets.csv, remediations.csv → Submit for Analysis
+# then open Proactive Watchlist (or GET /api/v1/forecast/metrics)
+```
 
 ---
 
@@ -806,6 +916,19 @@ secrets in Secret Manager, and a public URL protected by an access key. Visitors
 Uploaded data resets on restart (demo tier). Full guide, costs, operations and troubleshooting:
 [deploy/gcp/README.md](deploy/gcp/README.md).
 
+### Load the large benchmark dataset (recommended for the predictive demo)
+
+The bundled 260-device sample is too small for a meaningful predictive benchmark, and the page flags it as *low sample*. Generate the 5,000-device fleet ([13.3](#133-end-to-end-and-scale-verification)) and upload it through **Upload Dataset**. The first request to the watchlist after a restart or upload waits while the model trains (about 20–30 s); after that it is instant. **Restore sample dataset** returns to the bundled data.
+
+### Share the app with others (ngrok)
+
+```powershell
+.\run.ps1 -Dev -Port 8010      # UI on :5173, API on :8010
+ngrok http 5173                # share the https://…ngrok-free.app link
+```
+
+`frontend/vite.config.ts` allows any `*.ngrok-free.app` / `*.ngrok.app` host, so a fresh tunnel URL works without editing the config. Visitors click through ngrok's one-time warning page on the free plan.
+
 ### Enable LLM answers in the Copilot (optional)
 
 Copy `.env.example` to `.env` and set `ANTHROPIC_API_KEY` (Claude) **or** the three `AZURE_OPENAI_*` variables. Restart the server.
@@ -844,6 +967,7 @@ DEXSentimentCorrelation/
 ├── documentation.md          ← this document
 ├── README.md                 quick start
 ├── docs/SOLUTION.md          hackathon solution write-up (vision → roadmap, demo story)
+├── docs/PITCH.md             jury pitch: talk track, demo script, proof points, Q&A
 ├── run.ps1 / run.sh          one-command setup & launch
 ├── Dockerfile                container build
 ├── .env.example              configuration template
@@ -855,17 +979,17 @@ DEXSentimentCorrelation/
 │   │   ├── main.py           FastAPI app, middleware, static UI serving, start-up warm-up
 │   │   ├── config.py         settings
 │   │   ├── db.py             SQLite / SQLAlchemy persistence & audit
-│   │   ├── data/             schemas.py · loader.py (ingestion) · store.py (analytical store) · jobs.py (M8 jobs)
-│   │   ├── engines/          experience · telemetry · correlation · diagnosis · ml · outcomes · dex_score · insights · thresholds
+│   │   ├── data/             schemas.py · loader.py (ingestion) · store.py (analytical store) · jobs.py (M8 jobs) · simulator.py (benchmark data)
+│   │   ├── engines/          experience · telemetry · correlation · diagnosis · ml · forecast (predictive) · outcomes · dex_score · insights · thresholds
 │   │   ├── copilot/          agent · tools · prompts · provider_anthropic · provider_azure · provider_template · retriever · kb/ (22 runbooks)
 │   │   └── api/              routes_analytics · routes_ai · routes_datasets · routes_admin · deps
-│   └── tests/                test_golden · test_engines · test_api · test_upload
+│   └── tests/                test_golden · test_engines · test_api · test_upload · test_forecast · test_simulator
 ├── frontend/
 │   ├── package.json · vite.config.ts · index.html
 │   └── src/
 │       ├── main.tsx · api.ts · styles.css
 │       ├── components/       Layout · ui (cards, tables, heatmaps, matrix) · charts
-│       └── pages/            Executive · Experience · Telemetry · Correlation · Diagnosis · Copilot · Outcomes · DexScore · Upload · Device · Settings
+│       └── pages/            Executive · Proactive · Experience · Telemetry · Correlation · Diagnosis · Copilot · Outcomes · DexScore · Upload · Device · Settings
 └── (original inputs)         masterprompt.md · requirements.md · DEX_Sentinel_Prototype.html · pitch deck · judge briefing
 ```
 
@@ -880,17 +1004,21 @@ DEXSentimentCorrelation/
 - **Correlation isn't causation.** Telemetry evidence supports a root cause but does not prove it.
 - **Upload history** on the M8 screen is kept in memory until the server restarts; the datasets themselves are saved permanently.
 - **Very large datasets** (millions of rows) take 3–14 s for each screen's first view; device-week correlations then use a 250,000-row sample.
+- **Predictive benchmark is simulated.** The 72% vs 49% result shows the method on realistic synthetic data. On real data the model must be re-evaluated, and the built-in backtest does exactly that after every upload.
+- **One-week horizon.** The model forecasts the next week only. Longer horizons are on the roadmap.
+- **Prediction is correlational.** Drivers explain the model's reasoning, not proven causes. Diagnosis Assist confirms the fix before action.
 
 ---
 
 ## 19. Future roadmap
 
 1. **Live connectors:** ServiceNow / Jira Service Management, Teams and telephony transcripts, DEX platforms (Nexthink, 1E, Intune Endpoint Analytics), with scheduled ingestion into Postgres.
-2. **Language models for sentiment:** add a transformer-based sentiment/emotion model alongside the lexicon, plus multilingual support.
-3. **Learn from outcomes:** fit thresholds, fusion weights and DEX scalings from confirmed diagnoses.
-4. **Proactive remediation:** auto-trigger fix scripts for at-risk devices, with Copilot-drafted change and communication and human approval.
-5. **ITSM write-back:** push the diagnosis and a "Resolved: verified recovery" closure status back to the ticket.
-6. **Enterprise hardening:** SSO / role-based access, row-level security by business unit, audit export, retention policies, transcript PII redaction.
+2. **AI text understanding:** Claude labels ticket language (sentiment, emotion, frustration) and a small local embedding classifier is trained on those labels. It runs offline, keeps the lexicon as a fallback, and adds multilingual support. A paraphrase stress test will show where keyword rules break.
+3. **Learn from outcomes:** fit thresholds, fusion weights and DEX scalings from confirmed diagnoses; retrain the predictive model from technician accept/reject feedback on the watchlist.
+4. **Proactive remediation (started):** the predictive watchlist is live. Next, auto-trigger fix scripts for high-risk devices, with Copilot-drafted change and communication and human approval.
+5. **Causal outcome measurement:** matched control devices (difference-in-differences) to report the true uplift of each fix type and recommend the best action per device.
+6. **ITSM write-back:** push the diagnosis and a "Resolved: verified recovery" closure status back to the ticket.
+7. **Enterprise hardening:** SSO / role-based access, row-level security by business unit, audit export, retention policies, transcript PII redaction.
 
 ---
 
@@ -900,7 +1028,13 @@ DEXSentimentCorrelation/
 No. Everything, including the Copilot's grounded mode, runs locally. An LLM key only upgrades the Copilot's answers.
 
 **Where does the AI "decide" things?**
-Scores and correlations come from transparent rules and statistics. The ML model gives a second opinion on root cause. The optional LLM only *explains*, using numbers it fetched from the app's tools.
+Scores and correlations come from transparent rules and statistics. The predictive ML model ranks who to help first next week, and every ranking comes with its drivers. A second ML model gives a second opinion on root cause. The optional LLM only *explains*, using numbers it fetched from the app's tools.
+
+**How is the prediction different from the existing at-risk list?**
+The at-risk list is a fixed formula on current levels (60% telemetry severity + 40% frustration burden). The predictive model learns from *trends*: a boot time rising 20 s a week matters before it crosses a threshold. It also learns from each device's history, and it is calibrated. In the same backtest it catches 72% of next-week frustrated tickets against 49% for the formula.
+
+**Can I reproduce the model numbers?**
+Yes. Run the seeded simulator (`--seed 7`), upload the CSVs, and open the Proactive Watchlist or `GET /api/v1/forecast/metrics`. The automated tests also check that the model beats the rule baseline on unseen weeks.
 
 **Can I use my own data?**
 Yes. Use **M8 Upload Dataset**: `.xlsx` or `.csv`, up to 200 MB per file. Only telemetry and tickets are required, and common export column names are recognised automatically.
