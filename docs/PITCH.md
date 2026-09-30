@@ -4,6 +4,8 @@
 
 DEX Sentinel links what employees *say* to the service desk with what their laptops are *doing*. It uses that link to diagnose problems in seconds, predict who will struggle next week, and prove with numbers that a fix improved someone's working day.
 
+> For a technical audience, see [TECHNICAL_BRIEF.md](TECHNICAL_BRIEF.md): architecture, every formula with worked examples, and the technical FAQ.
+>
 > Every number in this document comes from the running application and can be reproduced live. The data is simulated (no real employee data), and the benchmark is seeded so the jury can regenerate it.
 
 ---
