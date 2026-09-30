@@ -10,13 +10,16 @@
 
 | Module | What it does | Where |
 |---|---|---|
-| **Executive Dashboard** | DEX Score, Experience Recovery %, EEI, Device Health, Correlation Score, repeat-contact rate, business-impact savings, trends, top drivers, generated insights, at-risk devices | `/` |
+| **Command Center** | Landing page: the value in one sentence, DEX Score, next week's predicted frustrated tickets, realised annual benefits, the #1 problem, a 3-fix plan (DEX from → to) with **Fix now** buttons, the watchlist and insights | `/` |
+| **Proactive Watchlist** | LightGBM forecast of next week's frustrated tickets per device, explained and priced, with an out-of-time backtest against the rule baseline | `/proactive` |
+| **Value & Priorities** | *Annual Benefits*: ticket cost + productivity + license + hardware savings, each with its formula, source and what-if inputs (tickets counted causally). *Critical Few · 80/20*: every ticket traced to an issue type, a Priority Score (productivity + cost + employee + risk impact) and the fix and ROI per issue | `/roi` |
+| **Software Remediation + Fix now** | Runbooks and email-driven, version-specific software removal: dry run, named human approver, single-use token bound to the reviewed plan, per-device rollback, hash-chained audit. Also an MCP server for AI agents ([docs/REMEDIATION_MCP.md](docs/REMEDIATION_MCP.md)). Execution is simulated | `/remediation` |
 | **M1 Experience Analytics** | Sentiment, frustration score (0–100), emotion classification, experience severity, repeat-contact ladder, live text analyser, ticket explorer | `/experience` |
 | **M2 Telemetry Intelligence** | Device Health Score, Telemetry Severity Score, threshold breaches, fleet health bands, device fleet table | `/telemetry` |
 | **M3 Correlation Engine** | Severity lift, compliance incidence lift, Pearson/Spearman correlation matrix, risk heatmap, frustration heatmap, impact ranking, scatter with fit | `/correlation` |
 | **M4 Diagnosis Assist + Root Cause Engine** | 65/35 telemetry/text fusion, then ranked causes, confidence, sub-cause, telemetry evidence, fix and expected outcome, with an ML second opinion | `/diagnosis` |
 | **M5 DEX Copilot** | Tool-using agent grounded in the engines, with RAG over 22 remediation runbooks. Runs on Claude or Azure OpenAI, or the grounded template engine offline | `/copilot` |
-| **M6 Outcome Reporting** | Before vs after remediation, Experience Recovery %, per-category and per-case register, business impact, CSV export | `/outcomes` |
+| **M6 Outcome Reporting** | Before vs after remediation, Experience Recovery %, **causal uplift** (difference-in-differences vs matched never-fixed devices, 95% interval), per-category and per-case register, business impact, CSV export | `/outcomes` |
 | **M7 DEX Score** | Formula, component definitions, trends, cohort breakdown, what-if simulator | `/dex-score` |
 | **M8 Upload Dataset** | Upload new real-time data (.xlsx or .csv, up to 200 MB per file, replace or append), then **Submit for Analysis** re-runs the whole pipeline and refreshes every screen, with a before/after comparison | `/upload` |
 | Device 360 | Per-device telemetry history with the remediation week marked, tickets and before/after | `/devices/:id` |
@@ -124,7 +127,7 @@ New in the MVP:
 ## Tests
 
 ```powershell
-cd backend; ..\.venv\Scripts\python -m pytest -q     # 68 tests: golden figures, engines, API, uploads, Copilot tool loop (mocked)
+cd backend; ..\.venv\Scripts\python -m pytest -q     # 134 tests: golden figures, engines, API, uploads, Copilot tool loop (mocked), causal uplift, remediation approvals
 cd frontend; npm run typecheck
 ```
 

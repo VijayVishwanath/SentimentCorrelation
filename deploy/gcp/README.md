@@ -133,7 +133,7 @@ Re-running the script is safe. It keeps the existing keys and deploys a new revi
 
 ## 3. Verify
 
-1. Open the printed URL. The **Access key required** prompt appears. Enter the key and the Executive Dashboard loads
+1. Open the printed URL. The **Access key required** prompt appears. Enter the key and the Command Center loads
    (DEX Score **79.3**, correlation **r = 0.83** on the sample data).
 2. **Diagnosis Assist:** pick `TCK-00002` → Application Crash, 99% confidence.
 3. **DEX Copilot:** the top-bar chip reads `Copilot: anthropic`. Ask *"Which department has the worst experience?"*;

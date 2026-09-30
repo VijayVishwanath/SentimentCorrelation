@@ -52,8 +52,11 @@ function RiskPanel({ id }: { id: string }) {
         <h4 className="card-title mt" style={{ marginBottom: 6 }}>Proactive fix</h4>
         <div style={{ fontSize: 13 }}>{c.action} <span className="faint mono">({c.kb_id})</span></div>
         {c.expected_outcome && <div className="note mt">Past {c.category} fixes ({c.expected_outcome.based_on_cases} cases): ticket rate
-          −{fmt.pct(c.expected_outcome.ticket_rate_reduction_pct, 0)}, repeat contacts −{fmt.pct(c.expected_outcome.repeat_contact_reduction_pct, 0)}.</div>}
-        {c.category && <div className="mt"><FixNowButton label={`Fix ${id} before the call`} target={{ category: c.category, deviceIds: [id] }} /></div>}
+          −{fmt.pct(c.expected_outcome.ticket_rate_reduction_pct, 0)} ({c.expected_outcome.ticket_effect}), repeat contacts −{fmt.pct(c.expected_outcome.repeat_contact_reduction_pct, 0)}.</div>}
+        {c.category && (c.fix_applied
+          ? <div className="note mt"><span className="chip">fix applied</span> The {c.category} runbook already ran on this device; the
+              risk updates once post-fix telemetry arrives.</div>
+          : <div className="mt"><FixNowButton label={`Fix ${id} before the call`} target={{ category: c.category, deviceIds: [id] }} /></div>)}
       </Card>
       <ChartCard title="Risk history" sub="backtest weeks are out-of-time predictions; the last point is the live forecast"
                  table={r.history} columns={[{ key: "week", label: "As of week", num: true }, { key: "risk_pct", label: "Risk %", num: true },

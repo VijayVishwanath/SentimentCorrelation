@@ -56,9 +56,10 @@ function FixDrawer({ target, onClose }: { target: FixTarget; onClose: () => void
   const view = result || plan;
   const titleRef = useRef<HTMLHeadingElement>(null);
   useEffect(() => {
+    // capture phase: the portal wrapper stops key events from bubbling past React's root
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
   }, [onClose]);
   useEffect(() => { titleRef.current?.focus(); }, [rb]);
   const deviceLink = (r: Any) => <Link className="mono" to={`/device/${r.device_id}`} onClick={onClose}><b>{r.device_id}</b></Link>;
@@ -82,7 +83,7 @@ function FixDrawer({ target, onClose }: { target: FixTarget; onClose: () => void
             <div className="grid g-3">
               <Kpi label="Devices to fix" value={fmt.i(t.data.pending)} accent="var(--human)" deltaLabel={`${fmt.i(t.data.already_fixed)} already fixed`} />
               <Kpi label="Tickets avoided / yr" value={view ? fmt.i(view.projected.tickets_avoided_per_year) : "—"} accent="var(--machine)"
-                   deltaLabel={view ? `−${fmt.n(view.projected.ticket_reduction_pct, 0)}% on ${view.projected.based_on_cases} past fixes` : "create a plan"} />
+                   deltaLabel={view ? `−${fmt.n(view.projected.ticket_reduction_pct, 0)}% caused by ${view.projected.based_on_cases} past fixes (vs matched)` : "create a plan"} />
               <Kpi label="Saved / yr" value={view ? usd(view.projected.savings_per_year_usd) : "—"} accent="var(--machine)" deltaLabel="projected for this batch" />
             </div>
 

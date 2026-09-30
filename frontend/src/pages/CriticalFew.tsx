@@ -163,7 +163,7 @@ export default function CriticalFew() {
                             <div className="faint" style={{ fontSize: 11 }}>{i.trend.earlier} → {i.trend.later} tickets</div></td>
                           <td style={{ fontSize: 12, maxWidth: 280 }}>{i.solution.fix}<div className="faint mono" style={{ fontSize: 10.5 }}>{i.solution.kb_id}</div>
                             <div className="faint" style={{ fontSize: 11 }}>−{fmt.pct(i.solution.ticket_reduction_pct, 0)} tickets ({i.solution.effect_source === "measured"
-                              ? `${i.solution.evidence_cases} past fixes` : "fleet average"})</div>
+                              ? `causal, ${i.solution.evidence_cases} past fixes` : "fleet average"})</div>
                             <div style={{ marginTop: 6 }}><FixNowButton small label="Fix now"
                               target={{ category: i.category, signal: KB_SIGNAL[i.solution.kb_id], department: filters.department }} /></div></td>
                           <td style={{ textAlign: "right", whiteSpace: "nowrap" }}><b className="good" style={{ fontSize: 15 }}>{usd(i.roi.annual_preventable_usd)}</b>

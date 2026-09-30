@@ -86,8 +86,11 @@ def business_impact(rems: pd.DataFrame, tickets: pd.DataFrame, cfg: dict) -> dic
 
 
 def ticket_reduction_pct(effect: dict | None) -> float:
-    """Observed ticket-rate reduction of a fix category, as a positive %; 0 when tickets did not fall."""
+    """Ticket-rate reduction a fix category achieved, as a positive %: the causal one (vs matched never-fixed
+    devices) when a control group exists, else the observed before/after drop; 0 when tickets did not fall."""
     tr = (effect or {}).get("ticket_rate") or {}
+    if tr.get("causal_change_pct") is not None:
+        return float(tr["causal_change_pct"])
     return float(tr.get("change_pct") or 0.0) if tr.get("improved") else 0.0
 
 
@@ -153,6 +156,15 @@ def _outcome_report(store, cfg: dict, category: str | None, department: str | No
                        "dex_before": cd["before"].get("dex_score"), "dex_after": cd["after"].get("dex_score"),
                        "recovery_pct": cd["experience_recovery_pct"]})
     by_cat.sort(key=lambda d: -1e9 if d["recovery_pct"] is None else d["recovery_pct"], reverse=True)
+
+    # causal share of the ticket drop (difference-in-differences vs matched never-fixed devices)
+    from . import uplift
+    u = uplift.causal_uplift(store, category, department)
+    if u.get("available"):
+        aggregate["ticket_rate"]["causal_change_pct"] = uplift.reduction_pct(u["overall"])
+        blocks = {c["category"]: c for c in u["by_category"]}
+        for c in by_cat:
+            c["ticket_rate"]["causal_change_pct"] = uplift.reduction_pct(blocks.get(c["category"]))
 
     cohort = cohort_dex(store, rems, sla)
     return {

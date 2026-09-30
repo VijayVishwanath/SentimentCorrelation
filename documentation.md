@@ -102,14 +102,16 @@ A single **DEX Score** (0–100) summarises all of this for leadership. Module 8
 
 | # | Module | What you get | Key outputs |
 |---|---|---|---|
-| — | **Executive Dashboard** | One-page leadership view | DEX Score, Experience Recovery %, Correlation Score, business savings, trends, top drivers, generated insights (including the predictive insight), at-risk devices |
+| — | **Command Center** | Landing page: the value in one sentence | DEX Score, next week's predicted frustrated tickets, realised annual benefits, the #1 problem, a 3-fix plan (DEX from → to, $, tickets) with **Fix now**, the watchlist, insights |
+| ROI | **Value & Priorities** | What it is worth, and what to fix first | *Annual Benefits*: four benefit lines with formulas, sources and what-if inputs. *Critical Few · 80/20*: issue types ranked by Priority Score (productivity + cost + employee + risk impact), with problem, future risk, fix and ROI per issue |
+| MCP | **Software Remediation + Fix now** | Fix it safely | Runbooks and email-driven software removal: dry run, named human approver, single-use token bound to the reviewed plan, rollback, hash-chained audit, MCP server for agents (simulated execution) |
 | ML | **Proactive Watchlist** *(new)* | Who will struggle next week, and what to do now | Calibrated next-week risk per device, risk band, top drivers, likely cause, recommended fix + runbook, avoidable tickets and $ value, ML-vs-rules backtest, driver importance, calibration chart |
 | M1 | **Experience Analytics** | What employees are saying | Frustration Score (0–100), sentiment, emotion (Anger / Frustration / Anxiety / Inquiry / Neutral), severity (Low / Medium / High / Critical), Employee Experience Index |
 | M2 | **Telemetry Intelligence** | What devices are doing | Device Health Score, Telemetry Severity Score, threshold breaches, fleet health bands, device list |
 | M3 | **Correlation Engine** | What's actually driving frustration | Correlation score, severity lift, compliance incidence lift, correlation matrix, risk heatmap, impact ranking, experience drivers |
 | M4 | **Diagnosis Assist + Root Cause Engine** | Root cause for a ticket + device | Ranked causes with likelihood and confidence, sub-cause, telemetry evidence, suggested fix, expected outcome, ML second opinion |
 | M5 | **DEX Copilot** | Ask questions in plain English | Ticket summary, root-cause explanation, evidence, remediation steps, expected outcome, business impact, with citations |
-| M6 | **Outcome Reporting** | Did the fix work? | Before vs after frustration, repeat-contact rate, tickets/week, DEX Score, Experience Recovery %, $ value, CSV export |
+| M6 | **Outcome Reporting** | Did the fix work, and did it *cause* the change? | Before vs after frustration, repeat-contact rate, tickets/week, DEX Score, Experience Recovery %, **causal uplift vs matched never-fixed devices** (95% interval), $ value, CSV export |
 | M7 | **DEX Score** | The single outcome number, explained | Formula, 5 components, trends, cohort ranking, what-if simulator |
 | M8 | **Upload Dataset** | Analyse new real-time data | Upload .xlsx/.csv (up to 200 MB per file), **Submit for Analysis**, before/after comparison, all screens refreshed |
 | — | **Device 360** | Everything about one device | **Next-week risk panel** (risk %, why, proactive fix, risk history against what actually happened), telemetry history with the fix week marked, tickets, remediations |
@@ -762,14 +764,16 @@ Open the app (see [section 15](#15-installing-and-running)). Use the **filter ro
 
 | Screen | What you see | How to use it |
 |---|---|---|
-| **Executive Dashboard** | DEX Score with its five components, Experience Recovery, business value, Correlation Score, at-risk devices, DEX and frustration trends, top telemetry and language drivers, generated insights (including "N devices likely to raise a frustrated ticket next week"), department ranking, before/after summary | Start here. Click an at-risk device to open its Device 360, or **Next-week ML forecast →** for the watchlist. |
+| **Command Center** | The value in one sentence, DEX Score, next week's forecast, realised Annual Benefits, the #1 problem, experience trend, the 3-fix plan with **Fix now**, top watchlist devices, insights | Start here. **Fix now** opens the runbook drawer; click a device for its Device 360. Every dollar figure is tagged Realised, Planned, Preventable, Proactive or Naive (hover for the meaning). |
+| **Value & Priorities** | Two tabs. *Annual Benefits*: the yearly value, four formula cards with editable inputs and their source. *Critical Few · 80/20*: four "X% of issue types → Y% of the impact" tiles, a Pareto chart, and the priority ranking (problem → future risk → solution → ROI) | Edit an input to test a scenario, then **Save as defaults**. On Critical Few click a tile to change the Pareto measure, and **Fix now** on a row. |
+| **Software Remediation** | The request inbox (email-driven removals), parsed request, safety checks, dry-run plan, approval, results, audit trail and run history | Create the dry-run plan, enter the approver's name, then execute. Runbook runs from **Fix now** also appear here. |
 | **Proactive Watchlist** *(new)* | KPIs (devices at elevated risk, expected frustrated tickets, share caught a week early vs rules, avoidable value), the ML-vs-rules backtest, driver importance, the ranked watchlist (risk, band, why, likely cause, proactive fix + runbook, avoidable tickets), calibration chart | Filter by department and choose Top 25/50/100. Click a device to see its risk history and fix. |
 | **M1 Experience Analytics** | Ticket KPIs, frustration by week, severity, emotion, the repeat-contact ladder (frustration rises with each repeat), channel/category breakdowns, a live text analyser, a ticket explorer | Paste any text into the analyser to see its score and which phrases fired. |
 | **M2 Telemetry Intelligence** | Device health KPIs, weekly signal trends, threshold breaches, health bands, device model comparison, a searchable device fleet table | Sort by risk to find devices to fix proactively. |
 | **M3 Correlation Engine** | Correlation score, lift cards, frustration by severity bucket, compliance incidence, impact ranking, correlation matrix, risk and frustration heatmaps, scatter with trend line | Switch the score basis; change the heatmap grouping; pick a signal for the scatter. |
 | **M4 Diagnosis Assist** | Intake (ticket, device, week, repeats, escalations) and engine output (frustration, ranked causes, sub-cause, evidence, fix, expected outcome, ML opinion), plus the device vitals and ticket history | Pick a ticket and click **Run diagnosis**, then **Explain with DEX Copilot**. |
 | **M5 DEX Copilot** | Chat with structured answers, citations, a tool-call trace and the knowledge-base browser | Try a suggested question, or add a device and ticket for a root-cause answer. |
-| **M6 Outcome Reporting** | Experience Recovery, cases improved, value, before/after KPIs, DEX by root cause, business impact, the case register | Filter by root cause; **Export CSV**. |
+| **M6 Outcome Reporting** | Experience Recovery, cases improved, value, before/after KPIs, **Did the fix cause it?** (naive vs causal uplift per root cause), DEX by root cause, business impact, the case register | Filter by root cause (or arrive from **Fix now → See the proven outcome**); **Export CSV**. |
 | **M7 DEX Score** | Formula and definitions, what-if simulator, component trends, cohort ranking | Move the sliders to see how improving a component changes the score. |
 | **M8 Upload Dataset** | Upload area, active dataset card, stage-by-stage progress, before/after comparison, derivations, column guide with CSV templates, upload history | Drop files, choose **Replace** or **Append**, click **Submit for Analysis**. |
 | **Device 360** | Latest vitals; **next-week risk** (risk %, why, proactive fix, expected outcome) and **risk history** (out-of-time predictions against whether a frustrated ticket actually followed); weekly charts with the fix week marked; remediations with before/after; ticket history | Click **Diagnose latest ticket**. |
@@ -785,7 +789,11 @@ Base URL: `http://<host>:<port>/api`. Interactive documentation: **`/docs`**. If
 |---|---|---|
 | GET | `/health` | Health check |
 | GET | `/v1/meta` | Dataset version, counts, filter values, thresholds |
-| GET | `/v1/dashboard/executive` | Executive Dashboard |
+| GET | `/v1/dashboard/executive` | Executive KPIs (feed the Command Center) |
+| GET | `/v1/dashboard/command-center` | Command Center: headline, plan, actions, watchlist |
+| GET | `/v1/roi` | Annual Benefits (`scenario=realized \| with_plan`, what-if inputs as query parameters) |
+| GET | `/v1/roi/critical-few` | Critical Few · 80/20: issue types, Priority Score, Pareto curves, ROI |
+| GET | `/v1/outcomes/uplift` | Causal uplift of fixes (`category`, `department`) |
 | GET | `/v1/experience/summary` | M1 summary |
 | GET | `/v1/experience/tickets` | Ticket search/paging (`q`, `severity`, `emotion`, `channel`, `category`) |
 | POST | `/v1/experience/analyze` | Score any text |
@@ -830,7 +838,7 @@ The Python engines reproduce every figure published in the original judge briefi
 | Remediation outcomes (46 cases) | frustration 69.0 → 58.2; repeat contacts 46.8% → 0.7%; tickets/week 0.41 → 0.15; 45/46 improved |
 | Briefing example ticket | 62/100 High; Application Crash 100% |
 
-### 13.2 Automated tests (81)
+### 13.2 Automated tests (134)
 
 | Suite | Covers |
 |---|---|
@@ -840,6 +848,11 @@ The Python engines reproduce every figure published in the original judge briefi
 | `test_upload.py` | Real-world style CSV (aliases, dates, daily roll-up, no categories), append mode, limits (type, size, mode), failed uploads leave live data untouched, restore sample |
 | `test_forecast.py` *(new)* | **No leakage** (changing future weeks leaves features unchanged), label = next-week frustration, low-sample and too-little-history guardrails, **ML beats the rule baseline out-of-time** (ROC-AUC, PR-AUC, recall), contributions sum exactly to the model score, watchlist ranking and explanations |
 | `test_simulator.py` *(new)* | Deterministic by seed, correct row counts, output passes upload validation |
+| `test_uplift.py` | Controls are never-fixed devices; uplift = treated − control change; interval brackets the estimate; ROI and every projection use the causal reduction |
+| `test_roi.py` | Annual Benefits formulas, sources, what-if and saved assumptions; Priority Score = sum of its four parts; critical few = smallest set reaching 80% |
+| `test_outcome_hardening.py` | Savings are zero when a fix type made tickets worse; fixes in the first data week don't crash; memoisation and cache-invalidation correctness |
+| `test_remediation.py`, `test_runbooks.py` | Dry runs change nothing; single-use tokens bound to the reviewed plan; agents can't approve; rollback; hash-chained audit detects tampering; MCP tool surface |
+| `test_explain.py` | "How was this computed?" explanations |
 
 Run them with `.\run.ps1 -Test`.
 

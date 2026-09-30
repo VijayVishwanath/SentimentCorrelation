@@ -189,7 +189,9 @@ CATEGORY_EVIDENCE_SIGNALS = {
 }
 
 
-def expected_outcome(category: str, remediations: pd.DataFrame) -> dict | None:
+def expected_outcome(category: str, remediations: pd.DataFrame, store=None) -> dict | None:
+    """With a store, the ticket reduction is the causal one (vs matched never-fixed devices); the naive
+    before/after figure is kept alongside."""
     r = remediations[remediations["root_cause_category"] == category]
     if r.empty:
         return None
@@ -198,9 +200,16 @@ def expected_outcome(category: str, remediations: pd.DataFrame) -> dict | None:
         p, q = float(r[pre].mean()), float(r[post].mean())
         return round(100 * (p - q) / p, 1) if p else 0.0
 
+    naive = red("pre_ticket_rate_per_week", "post_ticket_rate_per_week")
+    causal = None
+    if store is not None:
+        from .uplift import category_reduction_pct
+        causal = category_reduction_pct(store, category)
     return {"based_on_cases": int(len(r)),
             "repeat_contact_reduction_pct": red("pre_repeat_contact_rate_pct", "post_repeat_contact_rate_pct"),
-            "ticket_rate_reduction_pct": red("pre_ticket_rate_per_week", "post_ticket_rate_per_week"),
+            "ticket_rate_reduction_pct": causal if causal is not None else naive,
+            "naive_ticket_rate_reduction_pct": naive,
+            "ticket_effect": "causal (vs matched never-fixed devices)" if causal is not None else "naive before/after",
             "frustration_reduction_pct": red("pre_frustration_score", "post_frustration_score"),
             "typical_action": r["action_taken"].mode().iat[0]}
 
@@ -257,7 +266,7 @@ def diagnose(text: str, device_id: str, store, week: int | None = None,
                            else (top_sub["fix"] if top_sub else top["default_action"])),
         "standard_action": top["default_action"],
         "inconclusive": inconclusive,
-        "expected_outcome": expected_outcome(top["category"], store.remediations),
+        "expected_outcome": expected_outcome(top["category"], store.remediations, store),
         "history": {"prior_tickets": int(len(prior_tickets)),
                     "prior_same_category": int((prior_tickets["category"] == top["category"]).sum()),
                     "last_tickets": prior_tickets.sort_values("week", ascending=False).head(5)[

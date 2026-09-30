@@ -58,7 +58,7 @@ function ActionCard({ a, rank, department }: { a: Any; rank: number; department?
         <div><div style={{ fontSize: 20, fontWeight: 800 }} className="good">{usdShort(a.savings_per_year_usd)}</div><div className="faint" style={{ fontSize: 11 }}>saved / year<MoneyChip kind="planned" /></div></div>
         <div><div style={{ fontSize: 20, fontWeight: 800 }}>{fmt.i(a.tickets_avoided_per_year)}</div><div className="faint" style={{ fontSize: 11 }}>tickets avoided / yr</div></div>
         <div><div style={{ fontSize: 20, fontWeight: 800 }}>−{fmt.n(a.ticket_reduction_pct, 0)}%</div>
-          <div className="faint" style={{ fontSize: 11 }} title={`observed on ${a.evidence_cases} past fixes of this type`}>tickets after fix</div></div>
+          <div className="faint" style={{ fontSize: 11 }} title={`caused by ${a.evidence_cases} past fixes of this type, beyond what matched unfixed devices did anyway`}>tickets, causal</div></div>
       </div>
       <div style={{ marginTop: "auto" }}>
         <FixNowButton target={{ category: a.category, signal: a.signal, department }} label={`Fix now · ${fmt.i(a.devices_affected)} devices`} />
@@ -126,7 +126,7 @@ export default function CommandCenter() {
                   <div><div style={{ fontSize: 22, fontWeight: 800 }} className="good">{usdShort(d.roadmap.savings_per_year_usd)}</div><div className="faint" style={{ fontSize: 11 }}>saved per year<MoneyChip kind="planned" /></div></div>
                   <div><div style={{ fontSize: 22, fontWeight: 800 }}>{fmt.i(d.roadmap.tickets_avoided_per_year)}</div><div className="faint" style={{ fontSize: 11 }}>tickets avoided per year</div></div>
                 </div>
-                <div className="note mt" title={`Per fix: observed ticket reduction on past remediations of that type × extra tickets it causes today; $${d.cost_per_ticket_usd} per ticket incl. lost productivity. DEX gain = observed before/after DEX change × share of fleet affected.`}>
+                <div className="note mt" title={`Per fix: causal ticket reduction of past remediations of that type (difference-in-differences vs matched never-fixed devices) × extra tickets it causes today; $${d.cost_per_ticket_usd} per ticket incl. lost productivity. DEX gain = observed before/after DEX change × share of fleet affected.`}>
                   Projected from past fixes of the same type · hover for method</div>
               </Card>
             </div>
@@ -143,7 +143,7 @@ export default function CommandCenter() {
                   { key: "employee_name", label: "Employee", render: (r: Any) => <span><b>{r.employee_name}</b><div className="faint mono" style={{ fontSize: 11 }}>{r.device_id} · {r.department}</div></span> },
                   { key: "band", label: "Risk", render: (r: Any) => <span className="row" style={{ gap: 6 }}><RiskBadge band={r.band} /><span className="mono" style={{ fontSize: 12 }}>{fmt.pct(r.risk_pct, 0)}</span></span> },
                   { key: "action", label: "Recommended fix", render: (r: Any) => <span style={{ fontSize: 12 }}>{r.action}</span> },
-                  { key: "fix", label: "", render: (r: Any) => r.category
+                  { key: "fix", label: "", render: (r: Any) => r.fix_applied ? <span className="chip" title="The runbook ran; the model updates once post-fix telemetry arrives">fix applied</span> : r.category
                     ? <FixNowButton small label="Fix" target={{ category: r.category, deviceIds: [r.device_id] }} /> : null },
                 ]} />
               </Card>

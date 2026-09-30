@@ -63,8 +63,8 @@ Devices that are already fixed are not targeted again. Each plan projects the ti
 | 3 | `software_inventory` | Scans the registry (HKLM, WOW6432Node, HKCU), Program Files, Program Files (x86), AppData, WMI/MSI and running processes. |
 | 4 | `version_matcher` | Finds installations of **exactly** the requested version (`6.0.36` never matches `6.0.37`) and lists the other versions it will leave alone. |
 | 5 | `safety_validator` | Per device: system-critical packages and dependent applications **block** removal; running processes are warnings (they are stopped first). Pass `acknowledge_dependencies` to override a dependency block. |
-| 6 | `credential_manager` | Issues a short-lived, scoped token for the removal service account. No password is ever returned. |
-| 7 | `removal_orchestrator` | Dry run by default: returns the per-device plan. With `dry_run=false`, `approved_by` and `token_id` it executes. On each device it creates a restore point, stops processes, runs the MSI/EXE uninstall, deletes files, cleans the registry and verifies. |
+| 6 | `credential_manager` | Issues a short-lived, scoped, **single-use** token for the removal service account. No password is ever returned. |
+| 7 | `removal_orchestrator` | Dry run by default: returns the per-device plan. With `dry_run=false`, `approved_by`, `token_id` and the `plan_hash` returned by the reviewed dry run, it executes. On each device it creates a restore point, stops processes, runs the MSI/EXE uninstall, deletes files, cleans the registry and verifies. |
 | 8 | `verify_removal` | Re-scans the devices and confirms the version is gone. |
 | 9 | `outcome_reporter` | Reports before telemetry against projected after-telemetry, recent tickets, a notification for each user, a security-team summary and escalations. It also closes the originating email. |
 | — | `audit_trail` | Reads the hash-chained audit log and checks its integrity. |
@@ -73,7 +73,8 @@ Devices that are already fixed are not targeted again. Each plan projects the ti
 
 - **Sender allowlist, matched exactly.** `security-team@company.com.attacker.io` is rejected. The demo inbox includes this spoofed email.
 - **Version-specific.** A request without a version is not actionable.
-- **Human approval.** Execution fails without `approved_by` and a valid, unexpired token.
+- **Human approval.** Execution fails without `approved_by` naming a human (agent and service identities such as "agent", "Claude" or the service account are refused) and a valid, unexpired token.
+- **Plan-bound, single-use execution.** Every dry run returns a `plan_hash`: a fingerprint of the software, version and exact installations (or, for runbooks, devices) it would change. Execution must present that hash, so a scope that changed after review is refused, and each token authorises exactly one execution. The *Fix now* drawer and the Remediation page pass it automatically.
 - **Atomic per device.** If any step fails on a device (the simulated inventory includes a few uninstallers that exit with code 1603), the whole device is rolled back to its restore point, left unchanged and flagged for escalation. Other devices in the run continue.
 - **Tamper-evident audit.** Every token issue, plan, execution, rollback and outcome is appended to `remediation_audit`. Each row carries `sha256(previous hash + row)`, so editing or deleting a row breaks `audit_trail().integrity`.
 

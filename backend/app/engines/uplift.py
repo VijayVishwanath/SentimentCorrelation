@@ -153,6 +153,21 @@ def causal_uplift(store, category: str | None = None, department: str | None = N
     return res
 
 
+def reduction_pct(block: dict | None) -> float | None:
+    """Causal ticket-rate reduction as a % of the fixed devices' own pre-fix rate (what projections should use)."""
+    if not block:
+        return None
+    pre = block["balance"]["pre_tickets_treated"]
+    return round(100 * max(0.0, -block["tickets"]["uplift"]) / pre, 1) if pre > 0 else 0.0
+
+
+def category_reduction_pct(store, category: str, department: str | None = None) -> float | None:
+    u = causal_uplift(store, department=department)
+    if not u.get("available"):
+        return None
+    return reduction_pct(next((c for c in u["by_category"] if c["category"] == category), None))
+
+
 def annual_tickets_avoided(u: dict) -> float | None:
     """Tickets a year the fixes removed beyond the control trend: −uplift × fixed devices × 52 (0 if no effect)."""
     if not u.get("available"):

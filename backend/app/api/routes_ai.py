@@ -95,7 +95,11 @@ def model_metrics(store: DataStore = Depends(store_dep)):
 async def forecast_watchlist(top: int = Query(50, ge=1, le=500), department: str | None = None,
                              store: DataStore = Depends(store_dep)):
     fc = await run_in_threadpool(forecast.get_forecaster, store)  # first call trains (seconds on large fleets)
-    return fc.watchlist(effective_config(), top=top, department=department)
+    wl = fc.watchlist(effective_config(), top=top, department=department)
+    if wl.get("available"):
+        from ..remediation.runbooks import mark_fix_applied
+        wl["items"] = mark_fix_applied(wl["items"])
+    return wl
 
 
 @router.get("/forecast/metrics", summary="Predictive DEX — out-of-time backtest vs the rule baseline, drivers")
@@ -107,7 +111,11 @@ async def forecast_metrics(store: DataStore = Depends(store_dep)):
 async def forecast_device(device_id: str, store: DataStore = Depends(store_dep)):
     if store.device(device_id) is None:
         raise HTTPException(404, f"device {device_id} not found")
-    return (await run_in_threadpool(forecast.get_forecaster, store)).device(device_id)
+    d = (await run_in_threadpool(forecast.get_forecaster, store)).device(device_id)
+    if d.get("current"):
+        from ..remediation.runbooks import mark_fix_applied
+        d = {**d, "current": mark_fix_applied([{**d["current"], "device_id": device_id}])[0]}
+    return d
 
 
 @router.post("/copilot/ask", summary="Module 5 — DEX Copilot (agentic, tool-grounded, RAG)")

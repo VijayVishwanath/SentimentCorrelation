@@ -162,7 +162,7 @@ export default function Diagnosis() {
                   </div>
                   {r.expected_outcome && (
                     <div className="note mt">Expected outcome from {r.expected_outcome.based_on_cases} past {r.primary.category} fixes: repeat contacts −{fmt.n(r.expected_outcome.repeat_contact_reduction_pct, 0)}%,
-                      {" "}ticket rate −{fmt.n(r.expected_outcome.ticket_rate_reduction_pct, 0)}%.</div>
+                      {" "}ticket rate −{fmt.n(r.expected_outcome.ticket_rate_reduction_pct, 0)}% ({r.expected_outcome.ticket_effect}).</div>
                   )}
                 </>
               )}

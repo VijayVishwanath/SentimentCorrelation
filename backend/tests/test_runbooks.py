@@ -34,6 +34,8 @@ def test_low_risk_is_auto_approved_and_not_repeated(store):
     assert r["projected"]["ticket_reduction_pct"] > 0
     again = runbooks.run(category="Login/Auth", device_ids=[dev], dry_run=False)
     assert again["status"] == "nothing_to_fix"
+    flags = runbooks.mark_fix_applied([{"device_id": dev, "category": "Login/Auth"}, {"device_id": dev, "category": "Network"}])
+    assert [f["fix_applied"] for f in flags] == [True, False]  # only the runbook that ran
     assert any(e["event"] == "runbook_applied" for e in audit.trail(run_id=r["run_id"]))
 
 

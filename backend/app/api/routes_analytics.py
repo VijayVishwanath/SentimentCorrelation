@@ -194,7 +194,9 @@ def command_center(f: Filters = Depends(filters), store: DataStore = Depends(sto
             "insights": [{"severity": i["severity"], "title": i["title"]} for i in exec_d["insights"][:4]],
             "cost_per_ticket_usd": round(cost, 2),
         }
-    return memo(store, "command", f.key(), build)
+    from ..remediation.runbooks import mark_fix_applied
+    d = memo(store, "command", f.key(), build)
+    return {**d, "watchlist": mark_fix_applied(d["watchlist"])}  # live: a Fix now run shows at once
 
 
 # --------------------------------------------------------------- annual benefits (ROI)

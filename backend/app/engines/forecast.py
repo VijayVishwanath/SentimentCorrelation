@@ -229,7 +229,7 @@ class Forecaster:
         tot = float(imp.sum()) or 1.0
         self.metrics["drivers"] = [{"group": g, "label": _group_label(g), "share_pct": round(100 * float(v) / tot, 1)}
                                    for g, v in imp.items()]
-        self._outcome = {c: expected_outcome(c, self.store.remediations) for c in ACTION_BY_CATEGORY}
+        self._outcome = {c: expected_outcome(c, self.store.remediations, self.store) for c in ACTION_BY_CATEGORY}
 
     def _driver_text(self, group: str, row: pd.Series) -> str:
         if group in TELEMETRY_SIGNALS:

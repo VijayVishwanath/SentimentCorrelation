@@ -118,7 +118,7 @@ export default function Proactive() {
                   render: (r: Any) => r.category || <span className="faint">Experience</span> },
                 { key: "action", label: "Proactive fix", filter: "text", render: (r: Any) => <span style={{ fontSize: 12 }}>{r.action}<div className="faint mono" style={{ fontSize: 10.5 }}>{r.kb_id}</div></span> },
                 { key: "avoidable_tickets", label: "Avoidable", num: true, filter: "num", render: (r: Any) => fmt.n(r.avoidable_tickets, 2) },
-                { key: "fix", label: "", sortable: false, render: (r: Any) => r.category
+                { key: "fix", label: "", sortable: false, render: (r: Any) => r.fix_applied ? <span className="chip" title="The runbook ran; the model updates once post-fix telemetry arrives">fix applied</span> : r.category
                   ? <FixNowButton small label="Fix now" target={{ category: r.category, deviceIds: [r.device_id] }} /> : null },
               ]} />
             </Card>

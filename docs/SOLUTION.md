@@ -41,7 +41,7 @@ Remediation register                 ─┘                                   �
         │ M6 Outcome Reporting │ M7 DEX Score │ Executive Insights                           │
         └────────────────────────────────────────────────────────────────────────────────────┘
                                  ▼
-             Executive Dashboard · module workspaces · Device 360 · CSV export · OpenAPI
+   Command Center · Value & Priorities · Remediation (MCP) · module workspaces · Device 360 · OpenAPI
 ```
 
 - **Stack:** Python 3 (FastAPI, pandas, SciPy, scikit-learn, SQLAlchemy) and React + TypeScript + Recharts. The API and UI deploy as one container.
@@ -83,11 +83,11 @@ Remediation register                 ─┘                                   �
 
 ## 8. User interface
 
-The app has a dark "machine vs human" design system: teal marks telemetry and amber marks experience. Both light and dark themes are available. Chart colours are validated for colour-vision deficiency on both surfaces, and every chart has a table-view twin and a hover tooltip. A global filter row (department, device model, work mode, week range) scopes every analytics page. The views are: Executive Dashboard, the seven module workspaces, Device 360, and Data & Settings.
+The app has a dark "machine vs human" design system: teal marks telemetry and amber marks experience. Both light and dark themes are available. Chart colours are validated for colour-vision deficiency on both surfaces, and every chart has a table-view twin and a hover tooltip. A global filter row (department, device model, work mode, week range) scopes every analytics page. The views are: Command Center (landing page), Proactive Watchlist, Value & Priorities (Annual Benefits and Critical Few · 80/20), Software Remediation, the seven module workspaces, Device 360, and Data & Settings.
 
-## 9. Executive dashboard
+## 9. Command Center and executive KPIs
 
-KPIs:
+The Command Center (landing page) is built on the executive KPIs below (bundled sample dataset):
 - DEX Score **79.3** (Good, +3.5 pts vs the first half of the window)
 - Experience Recovery **+36.9%**
 - Business impact **$114,734/yr**
@@ -194,15 +194,17 @@ Every derivation is shown to the user. In testing, a ServiceNow/DEX-style export
 
 ## 16. Demo story (7 minutes)
 
-1. **Executive Dashboard (60 s).** "Ticket SLAs look fine, but is experience improving?" Show the DEX Score of 79.3, the dip in weeks 6–7 and the recovery, +36.9% recovery and $115k of value.
-2. **Correlation (60 s).** "Frustration isn't random." Show r = 0.83, boot >85 s at 1.9× frustration, non-compliance creating login tickets (28.5% vs 0%), and the risk heatmap.
-3. **Experience Analytics (45 s).** Show the repeat-contact ladder (frustration climbs with every contact). Paste a ticket into the live analyser.
-4. **Diagnosis Assist (90 s).** Pick TCK-00002, the briefing's Outlook example. The result is Application Crash at 99% confidence, with 9 hangs breached 3 of 4 weeks as evidence, fix KB-APP-001, an expected −64% ticket rate, and the ML model agreeing.
-5. **DEX Copilot (60 s).** Click "Explain with DEX Copilot". It returns a business-language answer, the tool trace (diagnose → KB → outcomes) and citations. Then ask: "Which department has the worst experience and what should we fix first?"
-6. **Device 360 (30 s).** Open DEV-0003. Latency climbs until the week-7 fix, then drops. The DEX Score moves from 68.1 to 80.7.
-7. **Outcome Reporting (45 s).** Show 45/46 cases improved and the recovery by category. Note the honest n= disclosure, then export to CSV.
-8. **Upload Dataset, M8 (45 s).** Drop a new telemetry export and a ticket export, then click Submit for Analysis. Watch the stages run, see the before/after comparison, and open the dashboard to show it updated.
-9. **Close (15 s).** "Fuse the signal, diagnose the cause, prove the fix."
+The live talk track is in [PITCH.md §6](PITCH.md#6-seven-minute-talk-track-live-demo), with numbers from the 2,600-device demo dataset. It follows one clicked chain:
+
+1. **Command Center**: the value in one sentence, DEX Score, next week's forecast, realised benefits, the 3-fix plan.
+2. **Value & Priorities → Critical Few · 80/20**: 7 of 16 issue types account for 85% of the impact; Priority Score per issue.
+3. **Proactive Watchlist**: the model catches 2× what the rules catch on unseen weeks.
+4. **Device 360 → Diagnose**: why this device is at risk, and the root cause of its latest ticket.
+5. **Fix now**: dry run → named human approver → single-use token bound to the reviewed plan → rollback and audit (simulated).
+6. **Outcomes**: naive before/after vs **causal uplift** against matched never-fixed devices.
+7. **Annual Benefits**: the realised yearly value, each line with its formula and source.
+
+The figures in §9–§15 of this document come from the smaller bundled sample (326 tickets, 46 fixes), which the golden tests pin.
 
 ## 17. Hackathon presentation
 
@@ -221,13 +223,13 @@ Map the existing 12-slide deck (`DEX_Sentinel_Pitch_Deck.pptx`) to the live MVP:
 | 10 | Business impact | Dashboard KPIs, Settings assumptions |
 | 11 | Roadmap | §18 |
 
-Suggested additions: one slide on the **DEX Score framework** (§14) and one on the **DEX Copilot**, showing its tool trace and grounding rule.
+Suggested additions: one slide on the **DEX Score framework** (§14) and one on the **DEX Copilot**, showing its tool trace and grounding rule. For the evaluation round, add: **Critical Few · 80/20** (Priority Score), **Did the fix cause it?** (naive vs causal uplift), **Fix now with human approval** (plan-bound, single-use tokens, audit), **How we compare** and **Risks and limitations** (see [PITCH.md](PITCH.md) §8 and §11).
 
 ## 18. Future roadmap
 
 1. **Connect real signals.** Add connectors for ServiceNow / Jira SM (tickets, CSAT), Teams / telephony transcripts, and DEX telemetry platforms (Nexthink, 1E, Intune / Endpoint Analytics). Move to Postgres with scheduled ingestion.
 2. **Learn from real language.** Tune the lexicon on real tickets. Add a transformer sentiment and emotion model, with the lexicon kept as the explainable baseline. Add multilingual support.
 3. **Fit, don't assume.** Calibrate thresholds on fleet baselines, and learn the fusion weights and DEX sub-score scalings from confirmed diagnoses and outcomes.
-4. **Go proactive.** Trigger remediation scripts automatically for at-risk devices, and have the Copilot draft the change and employee communication with human approval.
+4. **Go proactive.** *Built:* one-click runbooks and an MCP remediation server with plan-bound human approval, rollback and audit (simulated execution). *Next:* real endpoint execution through Intune / ConfigMgr, and Copilot-drafted change notes and employee communication.
 5. **Close the loop in ITSM.** Write diagnoses and verified-recovery status back to the ticket, and offer a "Resolved, verified" closure code (KB-GEN-001).
 6. **Enterprise hardening.** Add SSO/RBAC, row-level security by business unit, audit export, a data-retention policy and full PII redaction for transcripts.

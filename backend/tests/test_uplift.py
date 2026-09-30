@@ -42,3 +42,15 @@ def test_roi_uses_the_causal_ticket_count(u, client):
     roi = client.get("/api/v1/roi").json()
     assert roi["inputs"]["tickets_avoided"]["value"] == round(uplift.annual_tickets_avoided(u))
     assert roi["causal"]["causal_tickets_avoided"] <= roi["causal"]["naive_tickets_avoided"]
+
+
+def test_projections_use_the_causal_reduction(u, store, client):
+    causal = {c["category"]: uplift.reduction_pct(c) for c in u["by_category"]}
+    for a in client.get("/api/v1/dashboard/command-center").json()["actions"]:
+        assert a["ticket_reduction_pct"] == round(causal[a["category"]], 1)
+    from app.remediation import runbooks
+    plan = runbooks.run(category="Performance", max_devices=2)
+    assert plan["projected"]["ticket_reduction_pct"] == round(causal["Performance"], 1)
+    from app.engines.diagnosis import expected_outcome
+    eo = expected_outcome("Network", store.remediations, store)
+    assert eo["ticket_rate_reduction_pct"] == causal["Network"] < eo["naive_ticket_rate_reduction_pct"]

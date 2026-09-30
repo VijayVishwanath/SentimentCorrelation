@@ -83,7 +83,7 @@ Four capabilities in a pipeline, plus a grounded AI assistant:
 
 | Technology | Version | Role |
 |---|---|---|
-| React | 18.3 | SPA with 12 screens |
+| React | 18.3 | SPA with 14 screens |
 | TypeScript | 5.6 | Type safety |
 | Vite | 5.4 | Dev server (proxies `/api`, `/docs` to the API; allows ngrok hosts) and build |
 | TanStack Query | 5 | Caching, `keepPreviousData`, invalidation after uploads |
@@ -99,7 +99,7 @@ Four capabilities in a pipeline, plus a grounded AI assistant:
 | `run.ps1` / `run.sh` | One-command install, build and run (`-Dev`, `-Port`, `-Test`) |
 | Dockerfile | Multi-stage: Node 22 builds the UI; Python 3.13-slim + libgomp1 serves API + UI through Hypercorn |
 | `deploy/gcp/` | Cloud Run (asia-south1): scale-to-zero, secrets in Secret Manager, HTTP/2 |
-| pytest + httpx | 81 automated tests |
+| pytest + httpx | 134 automated tests |
 | `app.data.simulator` | Seeded benchmark data generator |
 | ngrok | Sharing the local demo |
 
@@ -112,11 +112,11 @@ Four capabilities in a pipeline, plus a grounded AI assistant:
 ```mermaid
 flowchart TB
     subgraph Client["Browser"]
-        UI["React SPA<br/>Executive · Proactive · M1–M8 · Device 360 · Settings"]
+        UI["React SPA<br/>Command Center · Proactive · Value & Priorities · Remediation · M1–M8 · Device 360 · Settings"]
     end
     subgraph Server["FastAPI process (single worker)"]
         MW["Middleware: request id · security headers · GZip · CORS · optional X-API-Key"]
-        API["Routers /api/v1<br/>analytics · ai · datasets · admin"]
+        API["Routers /api/v1<br/>analytics · ai · datasets · admin · remediation"]
         MEMO["Memoised views<br/>(keyed by store identity + filters)"]
         JOBS["Upload job runner<br/>staged, background thread"]
         subgraph Engines
@@ -288,6 +288,52 @@ DEX = 0.35·EEI + 0.25·DHS + 0.20·RSS + 0.10·TRE + 0.10·STS
 | Tickets avoided / yr | Σ (pre − post ticket rate/week) × 52 | — |
 | Business impact | Tickets avoided × $22 + tickets × avg resolution h × 0.5 × $55/h | ~$114,734/yr |
 
+### 6.6.1 Causal uplift of fixes: `engines/uplift.py`
+
+Naive before/after flatters every fix: devices are fixed *because* they are at their worst, and many would calm down anyway (regression to the mean). So every fixed device is compared with **5 never-fixed look-alikes**: devices degraded on the same primary signal the week before the fix (boot, latency, compliance, hardware health or hangs), with the nearest ticket history (ticket distance weighted 3×, which gave the best balance of 1, 3 and 6).
+
+```
+uplift = (treated post − treated pre) − mean(control post − control pre)
+pre = the 4 weeks before the fix week · post = the fix week and the 3 weeks after
+```
+
+| Output | Definition | Demo dataset (694 fixes, 1,906 controls) |
+|---|---|---|
+| Tickets per device-week | naive −0.67 · anyway −0.58 · **causal −0.09** | 95% CI −0.10 to −0.07 |
+| Frustration burden per device-week (week's peak frustration, 0 with no ticket) | naive −53.3 · anyway −9.0 · **causal −44.2** | 95% CI −45.6 to −42.9 |
+| Causal share | uplift ÷ naive change | 13% of the ticket drop, 83% of the frustration drop |
+| Causal ticket reduction % (used by every projection) | −uplift ÷ fixed devices' pre-fix ticket rate × 100, per category | e.g. Performance 11.6% vs 63% naive |
+| Balance check | pre-fix ticket rate, fixed vs matched | 0.91 vs 0.84 per week |
+
+The interval is a percentile bootstrap over fixed devices (1,000 resamples, seeded). Annual Benefits' *tickets avoided* = −uplift × fixed devices × 52, and Productivity Recovery's ticket-downtime part is scaled by the same causal share. The Command Center plan, Fix now projections, Critical Few ROI and the watchlist's expected outcome all use the causal ticket reduction (`outcomes.ticket_reduction_pct`).
+
+### 6.6.2 Critical Few (80/20) and the Priority Score: `engines/pareto.py`
+
+Every ticket is traced to an **issue type** = root-cause category → diagnosis sub-cause (the same rules as Diagnosis Assist; "Other" tickets take the fused text + telemetry category).
+
+| Impact | Per issue type | 
+|---|---|
+| Productivity | Σ resolution hours × productivity-loss factor (0.5) |
+| Cost | Σ support touches × cost per ticket, touch = 1 + escalated + reopened |
+| Employee | Σ frustration score (negative sentiment burden) |
+| Risk | forecast frustrated tickets next week for the category, split by the sub-cause's share of the last 8 weeks |
+
+```
+Priority Score (0–100) = Productivity + Cost + Employee + Risk impact, each = 25 × value ÷ largest issue type's value
+critical few = smallest set of top-priority issue types holding 80% of the combined impact
+preventable $/yr = annualised (IT cost + productivity cost) × causal ticket reduction of past fixes in the category
+```
+
+Demo dataset: 16 issue types; **7 (44%) account for 85%** of the combined impact; the top 20% alone account for 67–72% of each measure.
+
+### 6.6.3 Annual Benefits: `engines/roi.py`
+
+```
+Annual Benefits = Ticket Cost Savings + Productivity Recovery + License Savings + Hardware Refresh Savings
+```
+
+Each input is labelled *measured*, *derived*, *assumption* or *what-if*, and every dollar figure in the UI carries its kind: Realised, Planned, Preventable, Proactive or Naive. Demo dataset: **$720K/yr realised** ($701K data-backed), $1.02M/yr with the top 3 planned fixes.
+
 ### 6.7 Worked examples: every score, step by step
 
 All inputs below are real rows from the bundled sample dataset (Example E uses the seed-7 benchmark). Each result was produced by the application's engines and checked by hand; rounding follows the code.
@@ -413,7 +459,7 @@ What to take from this: RSS is the weakest component. Nearly half of all contact
 | Simulator | `test_simulator.py`: deterministic by seed, passes upload validation |
 | Scale | 163 MB / 2.34 M device-weeks live in about 80 s; the 5,000-device benchmark publishes in about 33 s and the model trains in about 30 s in the background |
 
-**Total: 81 tests.** Run them with `.\run.ps1 -Test` or `cd backend; pytest -q`.
+**Total: 134 tests.** Run them with `.\run.ps1 -Test` or `cd backend; pytest -q`.
 
 ---
 
@@ -448,6 +494,9 @@ Through the phrase design. The lexicon matches "is urgent", so "not urgent" does
 It comes from the requirements spec. Behaviour is a strong frustration signal that the text alone misses.
 
 ### Correlation and statistics
+
+**Q8a. Isn't the before/after just regression to the mean?**
+Partly, and we measure how much. `engines/uplift.py` compares each fixed device with its 5 closest never-fixed look-alikes over the same weeks (difference-in-differences with a bootstrap interval). On the demo dataset only 13% of the ticket drop is caused by the fix, against 83% of the frustration drop, and every projection and the ROI use the causal figure.
 
 **Q9. Why Pearson *and* Spearman?**
 Pearson measures linear association. Spearman is rank-based and robust to outliers and monotonic non-linearity. Showing both reveals when a relationship is real but non-linear.
@@ -528,13 +577,16 @@ Nothing, unless an LLM key is set. Even then, only tool results (aggregates, a d
 **Q31. HTTP hardening?**
 `nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy`, a CORS allow-list, GZip, request IDs, JSON errors with no stack traces, upload type/size/content checks, and limits of 200 MB per file and 10 files.
 
+**Q31a. How are remediation approvals enforced?**
+High-risk runbooks and software removals execute only with (1) a named human in `approved_by`: agent and service identities such as "agent", "Claude" or the service account are refused; (2) a single-use, short-lived token from the credential manager; and (3) the `plan_hash` of the dry run that human reviewed, so a changed scope or device set is refused. Devices roll back as a whole on failure, and every step is written to a SHA-256 hash-chained audit trail. Execution is simulated; the commands shown are what Intune or ConfigMgr would run. Remaining gaps: the approver is not yet an authenticated identity, and request e-mails are checked against an allow-list, not DKIM/SPF.
+
 ### Operations and testing
 
 **Q32. How do we deploy?**
 `docker build` → Cloud Run (`deploy/gcp/deploy.ps1`). It is a single container serving API + UI, with secrets from Secret Manager.
 
 **Q33. How is quality ensured?**
-81 pytest tests, including golden figures, leakage and ML-vs-rules tests, and a mocked Claude tool loop. There is end-to-end browser verification, and TypeScript type-checking for the UI.
+134 pytest tests, including golden figures, causal-uplift invariants, approval-bypass tests, leakage and ML-vs-rules tests, and a mocked Claude tool loop. There is end-to-end browser verification, and TypeScript type-checking for the UI.
 
 ### Limitations
 
@@ -545,6 +597,9 @@ Nothing, unless an LLM key is set. Even then, only tool results (aggregates, a d
 - Crash and VPN signals are derived rather than measured.
 - The forecast has a one-week horizon.
 - The prediction is correlational; Diagnosis confirms the fix.
+- The causal uplift assumes fixed and matched devices would have trended alike (parallel trends); the pre-fix balance is shown, and matching is on observed signals only.
+- Productivity Recovery's boot and hang minutes come from fixed devices without a control group.
+- Text-model scores are an upper bound: the simulated tickets are written from a few templates per category.
 
 ---
 
@@ -555,7 +610,7 @@ Nothing, unless an LLM key is set. Even then, only tool results (aggregates, a d
 cd backend
 ..\.venv\Scripts\python -m app.data.simulator --devices 5000 --weeks 26 --seed 7 --out ..\data\sim
 # UI → Upload Dataset → 4 CSVs → Submit for Analysis; wait ~30 s, then open Proactive Watchlist
-..\.venv\Scripts\python -m pytest -q       # 81 tests
+..\.venv\Scripts\python -m pytest -q       # 134 tests
 ```
 
 | Show | Where | What to point out |

@@ -100,6 +100,13 @@ def _applied(runbook_id: str) -> set[str]:
         return {r[0] for r in conn.execute(select(t.c.device_id).where(t.c.runbook_id == runbook_id)).all()}
 
 
+def mark_fix_applied(items: list[dict], key: str = "category") -> list[dict]:
+    """Copy of watchlist-style rows with fix_applied: the category's runbook already ran on that device (the model
+    only sees it once post-fix telemetry arrives, so the UI says so instead of offering the same fix again)."""
+    done = {cat: _applied(rb.runbook_id) for cat, rb in BY_CATEGORY.items()}
+    return [{**i, "fix_applied": i["device_id"] in done.get(i.get(key) or "", set())} for i in items]
+
+
 def targets(runbook_id: str | None = None, category: str | None = None, signal: str | None = None,
             device_ids: list[str] | None = None, department: str | None = None, limit: int = 100) -> dict:
     """Devices whose telemetry breaches the runbook's signal(s) in the data window, most recent first."""
