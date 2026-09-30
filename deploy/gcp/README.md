@@ -187,6 +187,49 @@ Check the current prices with the Google Cloud Pricing Calculator for asia-south
 | The first page load takes a few seconds | Cold start after scale-to-zero; use `--min-instances 1` during demos |
 | Uploaded data disappeared | Expected on the demo tier after a restart or redeploy; re-upload, or see production below |
 
+## 7. Operate with Claude Code through MCP servers (optional)
+
+Two **official remote MCP servers** (HTTPS, nothing to install) let Claude Code manage the repository and the
+deployment for you. The locally installed Google MCPs (`@google-cloud/cloud-run-mcp`, `@google-cloud/gcloud-mcp`)
+need the gcloud CLI, so they are not used here.
+
+| Server | Endpoint | Claude can |
+|---|---|---|
+| **GitHub** (by GitHub) | `https://api.githubcopilot.com/mcp/` | read/write code, commits, PRs, issues; run GitHub Actions and read their logs |
+| **Cloud Run** (managed by Google, GA) | `https://run.googleapis.com/mcp` (Mumbai regional endpoint in preview: `https://run.asia-south1.rep.googleapis.com/mcp`) | deploy services, list and inspect services and revisions, check status |
+
+**GitHub: one-time setup**
+1. github.com → Settings → Developer settings → **Fine-grained tokens** → *Generate new token*. Use these settings:
+   - Repository access: *Only select repositories* → `SentimentCorrelation`
+   - Permissions: **Contents**, **Pull requests**, **Issues**, **Actions** and **Workflows** set to *Read and write*
+   - Expiry: 30–90 days
+2. Windows → *Edit environment variables for your account* → add a new variable **`GITHUB_PAT`** = the token.
+   This needs no admin rights. Then restart VS Code.
+3. The project's `.mcp.json` (git-ignored) already contains the `github` server, reading the token from `${GITHUB_PAT}`.
+   Approve it when Claude Code asks, then check `/mcp`.
+
+**Cloud Run: one-time setup (Cloud Console, no gcloud)**
+1. APIs & Services → enable **Cloud Run Admin API**.
+2. IAM → grant your account: *Cloud Run Developer*, *Service Account User*, *Artifact Registry Reader*,
+   *Service Account Token Creator* and **MCP Tool User** (`roles/mcp.toolUser`).
+3. APIs & Services → configure the **OAuth consent screen** (user type *Internal* if offered). Then go to
+   Credentials → **Create OAuth client ID** → type **Web application** → authorised redirect URI
+   `http://localhost:8765/callback`.
+4. Send the **client ID** to Claude, who will add the `cloud-run` server. Enter the **client secret** yourself at the
+   masked prompt. It is stored in Claude Code's credential store, never in the repo. The resulting entry looks like:
+   ```json
+   "cloud-run": { "type": "http", "url": "https://run.googleapis.com/mcp",
+                  "oauth": { "clientId": "YOUR_CLIENT_ID", "callbackPort": 8765,
+                             "scopes": "https://www.googleapis.com/auth/run" } }
+   ```
+5. In Claude Code, run `/mcp` → `cloud-run` → *Authenticate*, then sign in with Google. If Google reports
+   `redirect_uri_mismatch`, add the exact redirect URI it shows to the OAuth client and try again.
+
+**Least privilege.** The token is limited to one repository and expires; revoke it at any time on GitHub. For
+look-but-don't-touch access to Cloud Run, use the scope `https://www.googleapis.com/auth/run.readonly`. Claude Code
+asks before each MCP tool call, so keep deploy actions on *ask*. If your organisation blocks OAuth-client creation or
+MCP use, the GCP admin must enable it.
+
 ## Upgrading to production
 
 When the demo becomes a pilot:

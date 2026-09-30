@@ -25,6 +25,9 @@ frontend/*.tsbuildinfo
 Thumbs.db
 ~$*
 
+# Claude Code MCP server config (per-developer; tokens come from environment variables)
+.mcp.json
+
 # Cloud Shell upload bundle (generated)
 dex-sentinel-source.zip
 
