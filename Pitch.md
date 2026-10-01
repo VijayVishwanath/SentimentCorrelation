@@ -100,33 +100,39 @@ We expanded sentiment analysis to capture **what matters to the business**, not 
 
 ## Live Demo Moment
 
-**Show command center:**
-- DEX Score card (one number summarizing experience + device health)
-- Top 3 actions (prioritized by impact/urgency/trust)
+**Show command center (landing page):**
+- Headline: "25 frustrated tickets are coming next week. Fixing 3 things saves $73K a year."
+- DEX Score: 79.3/100 (Good, +7.6 pts by department)
+- Predicted Week 13: 25 frustrated tickets expected
+- Annual Benefits: $993K/yr (tickets $107K + productivity $708K)
+- #1 Problem: Network latency (144 devices, 398 extra tickets)
+- Experience trend chart: DEX Score vs Avg frustration over 12 weeks
+- The Plan: Current 79.3 → If top 3 fixes → 83.4 DEX, saves $73K/yr, prevents 483 tickets
+- Top 3 actions: #1 Network (+1.5 DEX), #2 Performance (+1.4 DEX), #3 Hardware (+1.2 DEX)
 
-**Show experience page:**
-- KPI row: avg frustration, high business impact %, urgent %, trust at risk %
-- "Beyond frustration" trend: 3 dimensions by week
-- Ticket explorer: sort/filter by impact, urgency, trust
+**Show filters:**
+- All departments, All device models, All work modes
+- Date range: From W1 to W12
+- Copilot button (anthropic) in top bar
+- Analyst details toggle
 
-**Show diagnosis:**
-- Paste a ticket: "Outlook crashes, slowing me down, I can't get this report to the CFO before lunch"
-- Output: Frustration (72), Impact (85 High), Urgency (95 High), Trust (Low), Primary concern: Business impact
-- Root cause: Hangs + boot slowness, priority P1 (base 72 + impact boost +10 + urgency boost +10 = 92)
-
-**Show proof & value:**
-- Causal outcomes: "After fix, this cohort's frustration dropped by 18 points; matched control dropped by 4; fix caused 14-point gain"
+**Show proactive watchlist:**
+- ML predictions for next week
+- Calibration and method details (visible when analyst mode ON)
 
 ---
 
 ## Numbers to Cite
 
-- **9,597 tickets**, 2,600 devices, 12 weeks (live demo data)
+- **9,719 tickets**, 2,600 devices, 12 weeks (live demo data)
+- **$993K/yr** annual benefits realised ($107K tickets + $708K productivity)
+- **$73K/year** saved by fixing top 3 issues
+- **483 tickets/year** prevented by proactive fixes
 - **3 dimensions** beyond frustration (explainable, rule-based)
 - **7 nav sections** (jury-ready, analyst mode off by default)
 - **153 tests** all passing (no regressions)
 - **93.3% validated** frustration score
-- **Thermal detection**: Device temperature + hang language → priority boost
+- **ML forecast**: 25 frustrated tickets predicted for week 13
 - **Causal measurement**: Separates fix effect from trend
 - **One-click remediation**: ServiceNow sync + MCP auto-removal
 

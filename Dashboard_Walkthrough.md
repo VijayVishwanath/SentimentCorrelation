@@ -13,67 +13,73 @@ The dashboard has **7 main sections**. We'll walk through the most important one
 
 ## Section 1: Command Center (Homepage) — 1 minute
 
-**What you see**: A single number (the "DEX Score") and three suggested actions.
+**What you see**: A compelling headline, DEX Score, predictions, and a plan.
 
-### The DEX Score (0–100)
+### The Headline
+- **What it says**: "25 frustrated tickets are coming next week. Fixing 3 things saves $73K a year."
+- **Why it matters**: One sentence tells the story: we know what's coming, we know what fixes it, we know the value
+- **Scope**: "2,600 devices · 9,719 tickets · weeks 1-12"
+
+### The Four Key Cards
+
+**1. DEX Score (79.3/100)**
 - **Simple meaning**: How satisfied are your employees with their digital experience?
-- **What it combines**: 
-  - Employee frustration (from tickets)
-  - Device health (from telemetry)
-  - Whether fixes actually stick
+- **What it combines**: Employee frustration + Device health + Whether fixes stick
+- **Trend**: "Good · +7.6 pts · by department →" (shows it's improving)
 - **At a glance**: Green = good, red = needs attention
 
-### Top 3 Actions
-- Shows the **three most important** things to fix right now
-- Ordered by: Impact (how many employees hurt?) + Urgency (how time-sensitive?)
-- **Why we show 3**: IT teams can focus; don't overwhelm with a list of 20
+**2. Predicted - Week 13**
+- **What it says**: "25 frustrated tickets expected"
+- **Why it matters**: You can plan remediation *before* the tickets land
+- **Based on**: ML forecast from past 4 weeks
 
-**Example**: "Outlook crashes are blocking 15 people, they need it fixed by end of week, and it happened to 3 of them last month too" = Action #1
+**3. Annual Benefits Realised**
+- **What it says**: "$993K/yr saved"
+- **Breakdown**: Tickets $107K + Productivity $708K
+- **Why it matters**: Not just "we fixed things"; we measured the money saved
+
+**4. #1 Problem**
+- **What it says**: "Network latency · 144 devices · 398 extra tickets"
+- **Why it matters**: Shows the single biggest issue blocking your workforce
+
+### The Experience Trend Chart
+- **Two lines**: DEX Score (cyan, steady around 75–80) and Avg Frustration (orange, tracking inversely)
+- **What to look for**: Are they converging? Trending up? Any drops after fixes?
+- **Time range**: Weeks 1–12, so you can spot seasonal patterns
+
+### The Plan
+- **Current state**: DEX 79.3
+- **If we fix top 3 issues**: DEX jumps to 83.4
+- **Savings**: $73K/year
+- **Prevented**: 483 tickets avoided per year
+- **How we know**: "Projected from past fixes of the same type · hover for method"
+
+### Top 3 Actions to Raise DEX
+- **#1 Network**: +1.5 DEX improvement
+- **#2 Performance**: +1.4 DEX improvement
+- **#3 Hardware**: +1.2 DEX improvement
+- **Why ranked this way**: Combination of how many people it affects, how much frustration it causes, and likelihood of fix success
+
+### Top Bar Controls
+- **Filters**: All departments, All device models, All work modes, Date range (From W1 to W12)
+- **Copilot**: Click to open AI assistant
+- **Analyst details**: Toggle to hide/show dense content
+- **Theme**: Light/dark mode
 
 ---
 
-## Section 2: Experience Analytics — 2 minutes
+## Section 2: Proactive Watchlist — 1 minute
 
-**What you see**: Four key numbers + two charts
+**What you see**: ML predictions for who will be frustrated next week and why.
 
-### The Four KPIs (left to right)
+### The Forecast
+- **What it says**: Probability each employee will raise a frustrated ticket
+- **Based on**: Past 4 weeks of frustration + device health + telemetry patterns
+- **Why it matters**: IT can be proactive (update devices, roll out fixes) instead of reactive (wait for complaint, then fix)
 
-**1. Average Frustration (0–100)**
-- What it means: On average, how frustrated are employees when they contact IT?
-- Green: <40 = mostly happy | Red: >70 = they're angry
-- Shows: How many are high/critical frustration (to the right)
-
-**2. High Business Impact (%)**
-- What it means: What share of tickets represent "this is blocking my work"?
-- Example: If 30%, that means 30 out of 100 tickets say "I can't work"
-- Why it matters: These aren't complaints; they're *lost productivity*
-
-**3. Urgent (%)**
-- What it means: What share need to be fixed today/this week?
-- Example: 20% = 1 in 5 tickets has a deadline or escalation
-- Why it matters: Helps IT distinguish "nice to have" from "fix now"
-
-**4. Trust in IT at Risk (%)**
-- What it means: How many tickets are about the *same problem again*?
-- Example: 10% = 1 in 10 is "I reported this before, it's still broken"
-- Why it matters: Signals IT credibility. High = we're not actually fixing things
-
-### The Two Charts
-
-**Chart 1: "Beyond Frustration" (weekly trend)**
-- Shows the **three dimensions over time**
-- Does business impact go up? (More things blocking work)
-- Does urgency go up? (More time pressure)
-- Does trust go down? (More repeat issues)
-- **What to look for**: Trends. If urgency spikes, something is on fire.
-
-**Chart 2: "What Employees Are Telling Us" (top cues)**
-- Lists the **most common reasons** behind each dimension
-- Example impact cues: "can't work," "losing hours," "meetings disrupted"
-- Example urgency cues: "urgent," "deadline," "escalation"
-- **What to look for**: Patterns. If "network" appears 50 times, that's a clue.
-
-**Action**: Click a ticket number to see which exact phrases triggered its score.
+### When Analyst Mode ON
+- See: Calibration charts, ROC curves, model confidence
+- Understand: How the model was trained and validated
 
 ---
 
@@ -105,43 +111,58 @@ The dashboard has **7 main sections**. We'll walk through the most important one
 
 ---
 
-## Section 4: Proof & Value — 1 minute
+## Section 4: Software Remediation — 1 minute
+
+**What you see**: Automated security fixes for vulnerable software versions.
+
+### The Flow
+1. **Security team sends an email** with version to remove (e.g., "Outlook 2019.1 has CVE-2024-xxxx")
+2. **DEX Sentinel finds devices** with that exact version
+3. **Safety check**: Blocks system-critical, shows dependencies
+4. **Show plan**: "Remove from 47 devices, can't touch 3 (system-critical)"
+5. **Execute with approval**: One-click, audit trail, rollback on error
+
+### Why it matters
+- **Speed**: Minutes instead of weeks of manual ticket routing
+- **Safety**: Knows what breaks if we remove it
+- **Traceability**: Complete audit trail for compliance
+
+---
+
+## Section 5: Proof & Value — 1 minute
 
 **What you see**: Before/after numbers and a list of fixes that worked.
 
-### Before/After Example
-- **Before the fix**: This cohort averaged frustration 65, 18 complained about slowness
-- **After the fix**: This cohort dropped to frustration 47, only 3 complained about slowness
+### Annual Benefits Realised
+- **Savings**: $993K/yr ($107K tickets + $708K productivity)
+- **Basis**: Real fixes applied to real devices, measured over time
+
+### The Plan
+- **Current DEX**: 79.3
+- **If top 3 fixes applied**: 83.4 (+4.1 improvement)
+- **Savings**: $73K/year
+- **Prevented**: 483 tickets avoided per year
+- **How we know**: "Projected from past fixes of the same type"
+
+### Causal Outcomes (when analyst mode ON)
+- **Before the fix**: This cohort averaged frustration 65
+- **After the fix**: This cohort dropped to frustration 47
 - **Did the fix cause it?**: We compare to a "matched group" that *didn't* get the fix
   - Matched group: also dropped from 65 → 54 (normal drift)
   - Fix group: dropped 65 → 47 (extra 18 points from the fix)
   - **Honest outcome**: The fix caused a 18-point improvement, not 18
 
-### The Case Register
-- Table of recent fixes
-- Shows: What was fixed, how many people were helped, how much frustration dropped
-- **Why it matters**: Tracks ROI. Shows IT: "These 5 fixes moved the needle; those 3 didn't."
-
 ---
 
-## Section 5: Evidence — 30 seconds (if time)
+## Section 6: Evidence — 30 seconds (if time)
 
 **What you see**: The raw data behind our score.
 
-### DEX Score Breakdown
-- Shows all 5 components and their weights
-- Example: "Employee Experience Index (40%) + Device Health (25%) + Remediation Success (15%) + ..."
-- **Why it matters**: Complete transparency. Jury can verify the math.
-
-### Device Telemetry
-- Boot times, crashes, temperature, battery health
-- Shown as: "Device is in top 10% of fleet" or "Device is in bottom 20%"
-- **Why it matters**: Shows which devices are struggling and need attention
-
-### Correlation Matrix
-- Does device health match employee sentiment?
-- Example: "When device health drops 10 points, frustration rises 8 points"
-- **Why it matters**: Proves we're not just measuring sentiment; we're linking it to reality
+### Available when analyst mode ON
+- **DEX Score Breakdown**: All 5 components and their weights
+- **Device Telemetry**: Boot times, crashes, temperature, battery health
+- **Correlation Analysis**: Device health vs employee sentiment (proof they're linked)
+- **Experience Details**: Frustration by week, repeat contacts, sentiment trends
 
 ---
 
@@ -151,7 +172,7 @@ The dashboard has **7 main sections**. We'll walk through the most important one
 
 ### When OFF (default, jury view)
 - Simple, clear, executive-friendly
-- Just: KPIs, main charts, Fix Now buttons
+- Just: The headline, 4 key cards, trend chart, the plan, top 3 actions
 - No: Formulas, calibration charts, heatmaps, audit trails
 
 ### When ON (analyst view)
@@ -165,73 +186,77 @@ The dashboard has **7 main sections**. We'll walk through the most important one
 
 ## Five Insights You Should Leave With
 
-1. **Frustration alone isn't enough**
-   - "Frustrated" doesn't tell you if this is a 5-minute annoyance or a $50K productivity loss
-   - We measure: Impact (cost), Urgency (deadline), Trust (credibility)
+1. **One headline tells the whole story**
+   - "25 frustrated tickets are coming next week. Fixing 3 things saves $73K a year."
+   - Not: "Avg frustration is 64 and rising, let's discuss strategy." 
+   - But: "Here's what's coming, here's how to stop it, here's the money we save."
 
-2. **Priority is defensible**
-   - It's not gut feel; it's math: frustration + impact boost + urgency boost + device health
-   - Jury can see every number and every phrase
+2. **Priority is mathematical, not gut-feel**
+   - Top 3 actions ranked by: Impact (how many people) + Urgency (how time-sensitive) + Device health
+   - IT can defend: "Network latency is #1 because 144 devices are affected, 398 extra tickets, and it cascades."
 
-3. **Outcomes are honest**
-   - We don't claim "frustration dropped 20 points after the fix"
-   - We measure: "Fix group improved 20, control improved 8, fix caused 12"
+3. **Prediction enables prevention**
+   - "25 frustrated tickets next week" means IT can proactively update devices, roll out fixes, notify teams
+   - Not reactive: wait for complaint, then scramble
 
-4. **The loop closes**
-   - ServiceNow ticket → Diagnosis → Fix recommendation → Execution → Outcome tracking
-   - No gap between "we identified the problem" and "we fixed it"
+4. **Outcomes are honest and measured**
+   - "Fix group improved by 18; matched control improved by 4; fix caused 14-point gain" 
+   - Not inflated: "We fixed Outlook and frustration dropped by 18 points" (ignores natural drift)
 
-5. **It works at scale**
-   - 9,597 tickets, 2,600 devices, live data
-   - Not a prototype; this is production-grade
+5. **Same app, two audiences**
+   - Jury sees: Headline, 4 cards, trend, plan, top 3 actions
+   - Analysts see: All the charts, formulas, calibration curves, audit trails
+   - One platform, two views
 
 ---
 
 ## Demo Script: 2-Minute Live Walk
 
-**Start at Command Center**
-- "This is the DEX Score. Today it's 72 out of 100, which means employees are moderately satisfied."
-- "These three actions are the highest-impact, most-urgent fixes we should tackle this week."
+**Start at Command Center** (30 seconds)
+- "The headline tells the story: 25 frustrated tickets are coming next week; fixing 3 things saves $73K/year."
+- "Look at the 4 cards: DEX Score 79.3 (good, improving), Next week 25 tickets, $993K/yr savings, #1 problem is network latency."
+- "The trend shows DEX and frustration moving together; if we fix the top 3 things, we jump to 83.4."
 
-**Click Experience Analytics**
-- "Look at this: 28% of tickets are about high business impact—things that actually stop work."
-- "Urgency is at 22%, which means about 1 in 5 needs to be fixed today."
-- "Trust in IT at risk is 18%, which is the percentage of repeat issues. That's something we can improve."
+**Scroll down to Top 3 Actions** (20 seconds)
+- "#1 Network (+1.5 DEX): 144 devices, 398 extra tickets. If we upgrade NICs, boots get faster."
+- "#2 Performance (+1.4 DEX): RAM upgrades, fewer hangs."
+- "#3 Hardware (+1.2 DEX): Battery replacements, device stability."
+- "Each one has a projected improvement based on similar fixes in the past."
 
-**Paste a ticket into Diagnose**
-- Text: "Outlook keeps crashing, I'm losing work, and I don't have time to call IT again."
-- Output shows:
-  - Frustration: 82 (they're angry)
-  - Impact: High (losing work = +60 points)
-  - Urgency: High (they're frustrated + repeat contact = +45 points)
-  - Priority: 92 (P1 – fix immediately)
-  - Root cause: Outlook memory leak (based on device telemetry + ticket keywords)
-  - Fix: Update Outlook, monitor for crashes, follow-up in 3 days
+**Click Diagnose tab** (30 seconds)
+- "Paste a ticket: 'Outlook keeps crashing, I'm losing work, and I don't have time to call IT again.'"
+- "Output shows:"
+  - Frustration: 82 (angry)
+  - Impact: High (losing work = blocking)
+  - Urgency: High (repeat contact = they've asked before)
+  - Priority: P1 (base 82 + impact boost + urgency boost)
+  - Root cause: Outlook memory leak, boot slowness
+  - Fix: Update Outlook, upgrade RAM, monitor for crashes
 
-**Click Proof & Value**
-- "Here's the impact: Last week we rolled out Outlook update to 140 people."
-- "Their frustration dropped from 68 to 51 on average. The matched control group dropped from 68 to 54."
-- "So the update itself caused a 3-point improvement. That's an honest measurement."
+**Click Proof & Value** (20 seconds)
+- "Annual benefits: $993K/yr. Breakdown: $107K from fewer tickets, $708K from productivity time saved."
+- "Last month's Outlook update: applied to 140 devices, frustration dropped 21 points on avg."
+- "Matched control dropped 6 points (normal drift), so the fix caused a 15-point gain."
 
-**Closing**
-- "This dashboard turns frustration scores into decisions: What to fix, why it matters, and whether the fix worked."
+**Closing** (10 seconds)
+- "This is the full loop: Predict frustration → Diagnose the cause → Apply fix → Measure the impact → Show the ROI."
 
 ---
 
 ## Three Questions Jury Will Ask
 
 **Q1: "Is this accurate?"**
-- A: "Frustration scoring is 93.3% validated against domain experts. Dimensions are rule-based cues, not a black box. Every score shows which phrases triggered it."
+- A: "Frustration scoring is 93.3% validated against domain experts on 9,597 real tickets. Dimensions are rule-based cues (e.g., 'can't work' = high impact), not black-box ML. Every score shows which phrases triggered it. You can verify."
 
-**Q2: "Why should we trust the priorities?"**
-- A: "Because they're not based on emotion alone. High priority means: frustrated + blocking work + time-sensitive. Three independent signals."
+**Q2: "How do you prioritize fairly?"**
+- A: "Not gut-feel. We measure impact (how many people hurt), urgency (deadlines, escalations, repeats), and device health. Top 3 actions have the biggest combined impact on DEX."
 
-**Q3: "What's the business impact?"**
-- A: "We track causal outcomes. Fixes that actually move the needle are separated from natural drift. ROI is measurable."
+**Q3: "How do you prove the fix worked?"**
+- A: "Causal measurement. We compare fix cohort to matched control group. If both groups improve 10 points naturally, but fix group improves 25 points, the fix caused 15 points. No inflated claims."
 
 ---
 
 ## Key Takeaway
 
-**"DEX Sentinel takes 'I'm frustrated' and turns it into 'Here's why, here's the fix, and here's the proof it worked.'"**
+**"DEX Sentinel closes the loop: Predict what will frustrate employees next week, diagnose why, fix it with confidence, measure the impact, and show the ROI."**
 
