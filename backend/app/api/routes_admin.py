@@ -1,19 +1,17 @@
-"""Admin API: health, metadata, business-assumption settings, dataset upload/reset."""
+"""Admin API: metadata and business-assumption settings."""
 from __future__ import annotations
 
-import threading
-
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from .. import db
 from ..config import get_settings
 from ..copilot.tools import effective_config
-from ..data import store as store_mod
 from ..data.store import DataStore
 from ..engines.thresholds import THRESHOLDS
 from .deps import CleanRoute, store_dep
 from .routes_analytics import clear_cache
+from .warmup import warm_in_background
 
 router = APIRouter(route_class=CleanRoute)
 
@@ -54,8 +52,7 @@ def get_app_settings():
 
 def _rewarm() -> None:
     """Recompute the heavy views in the background so the next page load after a change is not the slow one."""
-    from ..main import _warm_cache  # lazy: main imports this router
-    threading.Thread(target=_warm_cache, name="settings-rewarm", daemon=True).start()
+    warm_in_background("settings-rewarm")
 
 
 @router.put("/settings", summary="Update business-impact assumptions")
@@ -69,35 +66,3 @@ def put_app_settings(body: SettingsIn):
     clear_cache()
     _rewarm()
     return get_app_settings()
-
-
-@router.post("/data/upload", summary="Replace the dataset (synchronous; Module 8 uses /datasets/analyze)")
-async def upload(file: UploadFile = File(...)):
-    import shutil
-    import tempfile
-    from pathlib import Path
-
-    from ..data.jobs import JobBusyError, manager, max_upload_bytes
-    from .routes_datasets import _save
-    workdir = Path(tempfile.mkdtemp(prefix="dex_upload_"))
-    try:
-        saved = await _save(file, workdir, max_upload_bytes())
-        job = manager.submit([saved], "replace", workdir, background=False)
-    except JobBusyError as e:
-        shutil.rmtree(workdir, ignore_errors=True)
-        raise HTTPException(409, str(e))
-    except HTTPException:
-        shutil.rmtree(workdir, ignore_errors=True)
-        raise
-    if job.state != "succeeded":
-        raise HTTPException(422, {"message": job.error or "dataset validation failed", "issues": job.issues})
-    return {"status": "loaded", "rows": job.result["rows"], "warnings": job.result["report"]["warnings"],
-            "dataset": db.latest_dataset_version(), "job_id": job.id}
-
-
-@router.post("/data/reset", summary="Reload the bundled simulated dataset")
-def reset():
-    store_mod.init_store(force_seed=True)
-    clear_cache()
-    _rewarm()
-    return {"status": "reset", "dataset": db.latest_dataset_version()}

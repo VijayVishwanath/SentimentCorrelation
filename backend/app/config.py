@@ -76,6 +76,19 @@ class Settings(BaseSettings):
     imap_password: str | None = None
     imap_folder: str = "INBOX"
 
+    # ServiceNow incident sync (app/integrations/servicenow). Basic auth against the Table API;
+    # mode auto = live when instance + username + password are set, otherwise the built-in demo instance.
+    servicenow_instance: str | None = None  # e.g. https://dev12345.service-now.com
+    servicenow_username: str | None = None
+    servicenow_password: str | None = None
+    servicenow_mode: str = "auto"  # auto | live | mock
+    servicenow_auto_sync_minutes: int = 0  # 0 = off; overridable at runtime from the UI
+    servicenow_query: str | None = None  # extra encoded query, e.g. assignment_group.name=Service Desk
+    servicenow_lookback_days: int = 90  # first sync reaches this far back
+    servicenow_page_size: int = 500
+    servicenow_max_records: int = 10_000
+    servicenow_timeout_sec: float = 30.0
+
     # Static frontend build served by FastAPI
     frontend_dist: Path = PROJECT_ROOT / "frontend" / "dist"
 

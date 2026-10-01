@@ -108,6 +108,27 @@ remediation_audit = Table(
     Column("hash", String(64), nullable=False),
 )
 
+# ---- ServiceNow incident sync (app/integrations/servicenow); the watermark must survive restarts
+servicenow_sync_runs = Table(
+    "servicenow_sync_runs", metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("started_at", DateTime(timezone=True), nullable=False),
+    Column("finished_at", DateTime(timezone=True)),
+    Column("trigger", String(16), nullable=False),  # manual | scheduled
+    Column("mode", String(8), nullable=False),  # live | mock
+    Column("instance", String(255)),
+    Column("status", String(16), nullable=False),  # running | succeeded | no_changes | failed | skipped
+    Column("fetched", Integer, nullable=False, default=0),
+    Column("created", Integer, nullable=False, default=0),
+    Column("updated", Integer, nullable=False, default=0),
+    Column("skipped", Integer, nullable=False, default=0),
+    Column("unmatched_devices", Integer, nullable=False, default=0),
+    Column("since", String(32)),  # watermark the fetch started from
+    Column("watermark", String(32)),  # max sys_updated_on fetched; advances the next sync on success
+    Column("job_id", String(32)),
+    Column("error", Text),
+)
+
 RAW_TABLES = ["devices", "telemetry", "tickets", "remediations"]
 
 

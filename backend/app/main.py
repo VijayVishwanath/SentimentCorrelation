@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import logging
 import mimetypes
-import threading
 import time
 import uuid
 from contextlib import asynccontextmanager
@@ -17,7 +16,8 @@ from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from . import __version__
-from .api import routes_admin, routes_ai, routes_analytics, routes_datasets, routes_remediation
+from .api import (routes_admin, routes_ai, routes_analytics, routes_datasets, routes_integrations,
+                  routes_remediation)
 from .api.deps import SafeJSONResponse, require_api_key
 from .config import get_settings
 from .data.store import init_store
@@ -34,28 +34,12 @@ async def lifespan(_: FastAPI):
     from .copilot.retriever import get_kb
     get_kb()
     log.info("DEX Sentinel ready in %.2fs (env=%s)", time.perf_counter() - t, settings.environment)
-    threading.Thread(target=_warm_cache, name="cache-warmup", daemon=True).start()
+    from .api.warmup import warm_in_background
+    warm_in_background()
+    from .integrations.servicenow.scheduler import scheduler
+    scheduler.start()
     yield
-
-
-def _warm_cache() -> None:
-    """Pre-compute the heaviest unfiltered views so the first dashboard load is instant."""
-    from .api import routes_analytics as ra
-    from .api.deps import Filters
-    from .data.store import get_store
-    from .engines import forecast, ml
-    try:
-        store, f = get_store(), Filters()
-        ra.executive_dashboard(f, store)
-        ra.outcome_report(None, None, store)
-        ra.correlation_analysis(f, store, "frustration")
-        ml.get_model(store)
-        forecast.get_forecaster(store)  # predictive model: backtest + fit
-        ra.roi_critical_few(f, store)  # Pareto view reuses the outcome report and forecaster above
-        ra.command_center(f, store)  # landing page (also primes the outcome report behind Annual Benefits)
-        log.info("cache warm-up complete")
-    except Exception:
-        log.exception("cache warm-up failed")
+    scheduler.stop()
 
 
 app = FastAPI(
@@ -115,6 +99,7 @@ app.include_router(routes_ai.router, prefix="/api/v1", tags=["ai"], dependencies
 app.include_router(routes_admin.router, prefix="/api/v1", tags=["admin"], dependencies=secured)
 app.include_router(routes_datasets.router, prefix="/api/v1", tags=["datasets"], dependencies=secured)
 app.include_router(routes_remediation.router, prefix="/api/v1", tags=["remediation"], dependencies=secured)
+app.include_router(routes_integrations.router, prefix="/api/v1", tags=["integrations"], dependencies=secured)
 
 # ---- Serve the built React SPA (frontend/dist) from the same origin
 # Windows registries often map .js to text/plain, which browsers reject for module scripts.

@@ -14,14 +14,14 @@
 | **Proactive Watchlist** | LightGBM forecast of next week's frustrated tickets per device, explained and priced, with an out-of-time backtest against the rule baseline | `/proactive` |
 | **Value & Priorities** | *Annual Benefits*: ticket cost + productivity + license + hardware savings, each with its formula, source and what-if inputs (tickets counted causally). *Critical Few · 80/20*: every ticket traced to an issue type, a Priority Score (productivity + cost + employee + risk impact) and the fix and ROI per issue | `/roi` |
 | **Software Remediation + Fix now** | Runbooks and email-driven, version-specific software removal: dry run, named human approver, single-use token bound to the reviewed plan, per-device rollback, hash-chained audit. Also an MCP server for AI agents ([docs/REMEDIATION_MCP.md](docs/REMEDIATION_MCP.md)). Execution is simulated | `/remediation` |
-| **M1 Experience Analytics** | Sentiment, frustration score (0–100), emotion classification, experience severity, repeat-contact ladder, live text analyser, ticket explorer | `/experience` |
+| **M1 Experience Analytics** | Sentiment, frustration score (0–100), emotion classification, experience severity, repeat-contact ladder, top frustration language, ticket explorer | `/experience` |
 | **M2 Telemetry Intelligence** | Device Health Score, Telemetry Severity Score, threshold breaches, fleet health bands, device fleet table | `/telemetry` |
 | **M3 Correlation Engine** | Severity lift, compliance incidence lift, Pearson/Spearman correlation matrix, risk heatmap, frustration heatmap, impact ranking, scatter with fit | `/correlation` |
 | **M4 Diagnosis Assist + Root Cause Engine** | 65/35 telemetry/text fusion, then ranked causes, confidence, sub-cause, telemetry evidence, fix and expected outcome, with an ML second opinion | `/diagnosis` |
 | **M5 DEX Copilot** | Tool-using agent grounded in the engines, with RAG over 22 remediation runbooks. Runs on Claude or Azure OpenAI, or the grounded template engine offline | `/copilot` |
 | **M6 Outcome Reporting** | Before vs after remediation, Experience Recovery %, **causal uplift** (difference-in-differences vs matched never-fixed devices, 95% interval), per-category and per-case register, business impact, CSV export | `/outcomes` |
 | **M7 DEX Score** | Formula, component definitions, trends, cohort breakdown, what-if simulator | `/dex-score` |
-| **M8 Upload Dataset** | Upload new real-time data (.xlsx or .csv, up to 200 MB per file, replace or append), then **Submit for Analysis** re-runs the whole pipeline and refreshes every screen, with a before/after comparison | `/upload` |
+| **M8 Data Sources** | One-click or scheduled ServiceNow incident sync, or upload new real-time data (.xlsx or .csv, up to 200 MB per file, replace or append), then **Submit for Analysis** re-runs the whole pipeline and refreshes every screen, with a before/after comparison | `/upload` |
 | Device 360 | Per-device telemetry history with the remediation week marked, tickets and before/after | `/devices/:id` |
 | Data & Settings | Business-impact assumptions, model evaluation, API key | `/settings` |
 
@@ -54,9 +54,29 @@ Copy `.env.example` to `.env` and set **one** of the following:
 
 With no key, the Copilot uses the **grounded template engine**. It calls the same tools and returns the same schema, so the demo works fully offline. If an LLM call fails or is refused, the app falls back to the template engine automatically and says so in the UI.
 
+## Syncing incidents from ServiceNow
+
+Open **Data Sources** and click **Sync with ServiceNow**. The platform pulls every incident created or updated since
+the last sync and runs it through the same analysis job as an upload (append mode). Incidents are upserted by number,
+so an incident that changed in ServiceNow replaces its earlier copy instead of being counted twice. The results panel
+shows the before/after metrics. Set **Auto-sync** to 5 min, 15 min or hourly to keep the platform current with no clicks.
+
+- **Demo instance (default):** with no ServiceNow settings, the sync uses a built-in demo instance. It serves realistic
+  incidents for the loaded fleet and answers in the Table API's JSON shape, so the code path is the same as live.
+- **Live instance:** set `DEX_SERVICENOW_INSTANCE`, `DEX_SERVICENOW_USERNAME` and `DEX_SERVICENOW_PASSWORD` in `.env`
+  (see `.env.example`) and restart. A free Personal Developer Instance from developer.servicenow.com works. The
+  integration user needs read access to the `incident` table (for example the `itil` or `snc_read_only` role). The
+  sync is read-only: it never writes to ServiceNow.
+- **Field mapping:** `number` becomes the ticket id, and the configuration item (`cmdb_ci`) becomes the device id, so CI
+  names should match the telemetry device ids. The mapping also uses `caller_id`, `opened_at`, `contact_type`, the short
+  description and description (the ticket text), and `state` with the reopen/escalation counters (the outcome). Category
+  is mapped when it matches a platform category; otherwise it is inferred from the text. Canceled incidents are skipped.
+- **Safety:** the watermark only moves forward when the analysis succeeds, so a failed sync re-pulls the same window.
+  A live instance that fails is reported as failed and never silently replaced with demo data.
+
 ## Uploading new data (Module 8)
 
-1. Open **Upload Dataset (M8)** and drop an `.xlsx` workbook (one sheet per table) or one or more `.csv` files (one per table). Each file can be up to **200 MB**; up to 10 files per upload.
+1. Open **Data Sources (M8)** and drop an `.xlsx` workbook (one sheet per table) or one or more `.csv` files (one per table). Each file can be up to **200 MB**; up to 10 files per upload.
 2. Choose **Replace current dataset**, or **Append to current dataset** to merge new rows by key (for example, a weekly feed).
 3. Click **Submit for Analysis**. A background job then:
    - reads the files

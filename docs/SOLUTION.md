@@ -98,7 +98,7 @@ The Command Center (landing page) is built on the executive KPIs below (bundled 
 - Repeat-contact rate **46.0%** (recomputed within the window)
 - Average frustration **54.1**
 
-It also shows the DEX and frustration trends, the top telemetry and experience drivers, generated insights, DEX by department, the before/after summary and the at-risk device list.
+It also shows the DEX and frustration trends, the top telemetry and experience drivers, generated insights, the before/after summary and the at-risk device list.
 
 ## 10. Correlation analytics
 
@@ -171,7 +171,7 @@ Bands: Excellent ≥ 85, Good ≥ 70, Fair ≥ 55, Poor < 55. The score can be c
 6. The fixes are worth $114,734 a year.
 7. HR has the lowest DEX Score (78.3 vs 80.4 in Sales). It should be prioritised in the next remediation wave.
 
-## 15b. Module 8: Upload Dataset (real-time data)
+## 15b. Module 8: Data Sources (real-time data)
 
 New data arrives through `.xlsx` or `.csv` uploads (up to 200 MB per file), in replace or append mode. **Submit for Analysis** starts a staged background job:
 1. read

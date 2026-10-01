@@ -1,4 +1,3 @@
-import io
 from types import SimpleNamespace
 
 import pytest
@@ -12,7 +11,7 @@ GETS = [
     "/api/v1/correlation/heatmap?by=work_mode", "/api/v1/correlation/scatter?signal=latency", "/api/v1/dex-score",
     "/api/v1/outcomes", "/api/v1/outcomes?category=Hardware", "/api/v1/models/metrics", "/api/v1/copilot/status",
     "/api/v1/kb", "/api/v1/kb/search?q=battery", "/api/v1/kb/KB-NET-002", "/api/v1/settings",
-    "/api/v1/forecast/watchlist?top=10", "/api/v1/forecast/watchlist?department=Legal", "/api/v1/forecast/metrics",
+    "/api/v1/forecast/watchlist?top=10", "/api/v1/forecast/watchlist?department=Legal",
     "/api/v1/forecast/devices/DEV-0001",
 ]
 
@@ -64,18 +63,10 @@ def test_settings_roundtrip(client):
 
 
 def test_upload_rejects_bad_file(client):
-    r = client.post("/api/v1/data/upload", files={"file": ("x.txt", b"hi", "text/plain")})
+    r = client.post("/api/v1/datasets/analyze", files=[("files", ("x.txt", b"hi", "text/plain"))])
     assert r.status_code == 415
-    r = client.post("/api/v1/data/upload", files={"file": ("x.xlsx", b"not a workbook", "application/octet-stream")})
+    r = client.post("/api/v1/datasets/analyze", files=[("files", ("x.xlsx", b"not a workbook", "application/octet-stream"))])
     assert r.status_code == 415  # content sniffing: not a real .xlsx
-
-
-def test_upload_roundtrip_seed_workbook(client):
-    from app.config import get_settings
-    content = get_settings().seed_dataset.read_bytes()
-    r = client.post("/api/v1/data/upload", files={"file": ("seed.xlsx", io.BytesIO(content), "application/octet-stream")})
-    assert r.status_code == 200, r.text
-    assert r.json()["rows"]["tickets"] == 326
 
 
 def test_api_key_enforced(client, monkeypatch):

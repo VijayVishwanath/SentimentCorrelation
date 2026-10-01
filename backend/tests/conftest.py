@@ -7,6 +7,7 @@ _TMP = Path(tempfile.mkdtemp(prefix="dex_sentinel_test_"))
 os.environ["DEX_DATABASE_URL"] = f"sqlite:///{(_TMP / 'test.db').as_posix()}"
 os.environ["DEX_LLM_PROVIDER"] = "template"
 os.environ.pop("ANTHROPIC_API_KEY", None)
+os.environ["DEX_SERVICENOW_INSTANCE"] = ""  # never reach a real instance from tests, whatever .env holds
 
 import pytest  # noqa: E402
 

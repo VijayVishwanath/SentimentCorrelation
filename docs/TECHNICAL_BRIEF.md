@@ -609,13 +609,13 @@ High-risk runbooks and software removals execute only with (1) a named human in 
 .\run.ps1 -Dev -Port 8010                  # UI http://localhost:5173 · API http://127.0.0.1:8010/docs
 cd backend
 ..\.venv\Scripts\python -m app.data.simulator --devices 5000 --weeks 26 --seed 7 --out ..\data\sim
-# UI → Upload Dataset → 4 CSVs → Submit for Analysis; wait ~30 s, then open Proactive Watchlist
+# UI → Data Sources → 4 CSVs → Submit for Analysis; wait ~30 s, then open Proactive Watchlist
 ..\.venv\Scripts\python -m pytest -q       # 134 tests
 ```
 
 | Show | Where | What to point out |
 |---|---|---|
-| Model evaluation | `GET /api/v1/forecast/metrics` in `/docs` | Backtest method, ML vs rules, calibration deciles, driver shares |
+| Model evaluation | `GET /api/v1/models/metrics` (`forecast`) in `/docs` | Backtest method, ML vs rules, calibration deciles, driver shares |
 | An explained prediction | `GET /api/v1/forecast/devices/DEV-2462` | Drivers sum to the score; risk history vs actual outcome |
 | Diagnosis evidence | `POST /api/v1/diagnosis` | Likelihood vs confidence, evidence lines, ML agreement |
 | Grounded LLM | `POST /api/v1/copilot/ask` | `tool_calls` trace and citations |

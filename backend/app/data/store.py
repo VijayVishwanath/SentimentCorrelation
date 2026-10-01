@@ -288,7 +288,3 @@ def get_store() -> DataStore:
         return init_store()
     return _store
 
-
-def to_records(df: pd.DataFrame) -> list[dict]:
-    """JSON-safe records (NaN -> None, numpy -> python)."""
-    return df.replace({np.nan: None}).to_dict("records")

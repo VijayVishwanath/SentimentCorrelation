@@ -25,6 +25,7 @@ from sklearn.metrics import average_precision_score, brier_score_loss, roc_auc_s
 from . import outcomes
 from .correlation import _breach
 from .diagnosis import SUBCAUSES, expected_outcome
+from .telemetry import rule_risk
 from .thresholds import ACTION_BY_CATEGORY, TELEMETRY_SIGNALS
 
 log = logging.getLogger(__name__)
@@ -93,8 +94,8 @@ def build_features(device_weeks: pd.DataFrame, devices: pd.DataFrame, remediatio
     for c in ATTRS_CAT:
         f[f"dev__{c}"] = ids.map(dev[c]).astype("category")
 
-    # rule baseline = the app's existing at-risk score (copilot.tools.find_at_risk_devices), per week
-    f["_rule_score"] = _roll(sev * 0.6 + dw["experience_burden"].astype(float) * 0.4, ids, 4, "mean")
+    # rule baseline = the app's at-risk score (telemetry.rule_risk), per week
+    f["_rule_score"] = _roll(rule_risk(sev, dw["experience_burden"].astype(float)), ids, 4, "mean")
     f["_rule_breach"] = sum(_breach(dw, k).astype(int) for k in SIGNALS) > 0
 
     nxt_w = g["week"].shift(-1)

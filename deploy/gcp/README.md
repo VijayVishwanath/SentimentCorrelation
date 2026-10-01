@@ -138,7 +138,7 @@ Re-running the script is safe. It keeps the existing keys and deploys a new revi
 2. **Diagnosis Assist:** pick `TCK-00002` → Application Crash, 99% confidence.
 3. **DEX Copilot:** the top-bar chip reads `Copilot: anthropic`. Ask *"Which department has the worst experience?"*;
    the answer shows a tool trace and citations.
-4. **Upload Dataset (M8):** the *Demo instance* notice is shown. Upload a CSV and click **Submit for Analysis**; the
+4. **Data Sources (M8):** the *Demo instance* notice is shown. Upload a CSV and click **Submit for Analysis**; the
    stages run and every screen updates. Try a file larger than 32 MB to confirm HTTP/2 is working. Finish with
    **Restore sample dataset**.
 5. The downloads (CSV templates, sample workbook, outcomes export) work once the key is entered.

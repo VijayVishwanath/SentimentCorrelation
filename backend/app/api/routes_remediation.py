@@ -15,13 +15,6 @@ from .deps import CleanRoute
 router = APIRouter(route_class=CleanRoute)
 
 
-class EmailIn(BaseModel):
-    sender: str = Field(..., min_length=3, max_length=255)
-    subject: str = Field(..., min_length=1, max_length=998)
-    body: str = Field(..., max_length=100_000)
-    attachments: list[dict] = Field(default_factory=list, max_length=10)
-
-
 class RunIn(BaseModel):
     message_id: str | None = Field(None, max_length=255)
     software_name: str | None = Field(None, max_length=255)
@@ -58,14 +51,6 @@ def list_emails(status: str | None = Query(None, pattern="^(pending|processed|re
     return {"imap_configured": mailbox.imap_configured(),
             "authorized_senders": get_settings().remediation_allowed_senders,
             "items": mailbox.list_emails(status, limit)}
-
-
-@router.post("/remediation/emails", status_code=201, summary="Add an email to the inbox")
-def submit_email(body: EmailIn):
-    _ready()
-    m = mailbox.add_email(body.sender, body.subject, body.body, body.attachments, source="submitted")
-    audit.record("email_received", {"message_id": m["message_id"], "sender": body.sender, "status": m["status"]})
-    return m
 
 
 @router.post("/remediation/emails/poll", summary="Fetch tagged messages from the configured IMAP mailbox")

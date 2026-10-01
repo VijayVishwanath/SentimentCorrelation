@@ -20,6 +20,14 @@ from .thresholds import CATEGORIES, THRESHOLDS, signal_state
 SEVERITY_CAP = 1.3
 
 
+def rule_risk(severity, burden):
+    """The rule-based at-risk score: 60% telemetry severity + 40% experience burden (scalars or Series).
+
+    Used by the Copilot's at-risk tool, the device fleet API, and as the baseline the forecaster must beat.
+    """
+    return severity * 0.6 + burden * 0.4
+
+
 def _ramp(v, key: str):
     """Distance past the warn threshold, 0 at warn .. 1 at critical .. capped; unmeasured (NaN) -> 0."""
     th = THRESHOLDS[key]

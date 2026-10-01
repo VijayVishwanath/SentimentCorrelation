@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { Save, UploadCloud } from "lucide-react";
+import { Save } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { Any, api, fmt, getApiKey, setApiKey, useApi } from "../api";
@@ -7,10 +7,8 @@ import { Card, ErrorBox, QueryState } from "../components/ui";
 
 export default function SettingsPage() {
   const qc = useQueryClient();
-  const meta = useApi("/v1/meta");
   const settings = useApi("/v1/settings");
   const metrics = useApi("/v1/models/metrics");
-  const status = useApi("/v1/copilot/status");
   const [form, setForm] = useState<Record<string, number>>({});
   const [key, setKey] = useState(getApiKey());
   const [msg, setMsg] = useState<string | null>(null);
@@ -26,12 +24,15 @@ export default function SettingsPage() {
     try { setMsg(await fn()); refreshAll(); } catch (e) { setErr(e); } finally { setBusy(false); }
   };
 
-  const save = () => act(async () => { await api("/v1/settings", { method: "PUT", body: JSON.stringify(form) }); return "Assumptions saved — business impact recalculated."; });
-
+  // cost assumptions (per ticket, per hour, licences, devices) are edited once, on Value & Priorities
   const FIELDS: [string, string, number][] = [
-    ["cost_per_ticket_usd", "Cost per ticket (USD)", 1], ["hourly_employee_cost_usd", "Employee cost per hour (USD)", 1],
     ["productivity_loss_factor", "Productivity loss while impaired (0-1)", 0.05], ["resolution_sla_hours", "Resolution SLA (hours)", 0.5],
   ];
+  const save = () => act(async () => {
+    const body = Object.fromEntries(FIELDS.map(([k]) => [k, form[k]]));
+    await api("/v1/settings", { method: "PUT", body: JSON.stringify(body) });
+    return "Assumptions saved — every view recalculated.";
+  });
 
   return (
     <>
@@ -39,27 +40,14 @@ export default function SettingsPage() {
         <div>
           <div className="eyebrow">Admin</div>
           <h2>Data & Settings</h2>
-          <p>Dataset management, business-impact assumptions, AI model evaluation and API access.</p>
+          <p>Analysis assumptions, AI model evaluation and API access. Data is managed on <Link to="/upload">Data Sources</Link>;
+            cost assumptions on <Link to="/roi">Value &amp; Priorities</Link>.</p>
         </div>
       </div>
       {msg && <div className="card-flat" role="status" style={{ marginBottom: 14, borderColor: "var(--machine-dim)" }}>{msg}</div>}
       {err ? <div style={{ marginBottom: 14 }}><ErrorBox error={err} />{issues.length > 0 && <ul className="note">{issues.map((i) => <li key={i}>{i}</li>)}</ul>}</div> : null}
       <div className="grid g-2">
-        <Card title="Dataset" sub="the data every module is analysing">
-          <QueryState q={meta}>
-            {(m: Any) => (
-              <dl className="kv">
-                <dt>Source</dt><dd>{m.dataset?.source}</dd>
-                <dt>Loaded</dt><dd>{m.dataset?.loaded_at ? new Date(m.dataset.loaded_at).toLocaleString() : "—"}</dd>
-                <dt>Rows</dt><dd className="mono">{m.counts.devices} devices · {m.counts.telemetry_rows} telemetry · {m.counts.tickets} tickets · {m.counts.remediations} remediations</dd>
-                <dt>Weeks</dt><dd className="mono">{m.dimensions.weeks.length} ({m.dimensions.weeks[0]?.week_start} → {m.dimensions.weeks[m.dimensions.weeks.length - 1]?.week_start})</dd>
-              </dl>
-            )}
-          </QueryState>
-          <Link to="/upload" className="btn btn-primary mt"><UploadCloud size={14} />Upload a new dataset</Link>
-        </Card>
-
-        <Card title="Business-impact assumptions" sub="drive Business Impact Savings and Resolution Efficiency">
+        <Card title="Analysis assumptions" sub="drive Resolution Efficiency in the DEX Score and the productivity share of benefits">
           {FIELDS.map(([k, label, step]) => (
             <div key={k} style={{ marginBottom: 10 }}>
               <label className="field" htmlFor={k}>{label}</label>
@@ -85,40 +73,16 @@ export default function SettingsPage() {
                 </table>
                 <div className="note mt">{m.root_cause.evaluation} · n = {m.root_cause.n}. {m.disclosure}</div>
                 <div className="note">† Upper bound: the simulated tickets are written from a few sentence templates per category, so text-based
-                  scores are near-perfect by construction. Telemetry-only accuracy and the out-of-time forecast below are the fair read;
+                  scores are near-perfect by construction. Telemetry-only accuracy and the out-of-time forecast are the fair read;
                   real ticket text will score lower.</div>
-                <table className="t mt">
-                  <thead><tr><th>Next-week frustrated-ticket prediction</th><th className="num">Caught (top 5%)</th><th className="num">PR-AUC</th><th className="num">ROC-AUC</th></tr></thead>
-                  <tbody>
-                    {m.forecast.available ? (
-                      <>
-                        <tr><td>ML: LightGBM on telemetry trends + experience history</td><td className="num">{fmt.pct(m.forecast.backtest.ml.recall_pct)}</td>
-                          <td className="num">{fmt.n(m.forecast.backtest.ml.pr_auc, 3)}</td><td className="num">{fmt.n(m.forecast.backtest.ml.roc_auc, 3)}</td></tr>
-                        <tr><td>Rules: at-risk score (60% severity + 40% burden)</td><td className="num">{fmt.pct(m.forecast.backtest.rules.recall_pct)}</td>
-                          <td className="num">{fmt.n(m.forecast.backtest.rules.pr_auc, 3)}</td><td className="num">{fmt.n(m.forecast.backtest.rules.roc_auc, 3)}</td></tr>
-                      </>
-                    ) : <tr><td colSpan={4} className="faint">{m.forecast.reason}</td></tr>}
-                  </tbody>
-                </table>
-                {m.forecast.available && <div className="note mt">{m.forecast.backtest.method} · {fmt.i(m.forecast.backtest.positives)} frustrated tickets scored
-                  {m.forecast.low_sample ? " · low sample — indicative only" : ""}.</div>}
+                <div className="note mt">The next-week frustration forecast is evaluated against the rule baseline on <Link to="/proactive">Proactive Watchlist</Link>.</div>
               </>
             )}
           </QueryState>
         </Card>
 
-        <Card title="Copilot & API access">
-          <QueryState q={status}>
-            {(s: Any) => (
-              <dl className="kv">
-                <dt>Provider</dt><dd>{s.provider}</dd><dt>Model</dt><dd className="mono">{s.model}</dd>
-                <dt>KB articles</dt><dd>{s.kb_articles}</dd>
-              </dl>
-            )}
-          </QueryState>
-          <div className="note mt">Enable LLM mode by setting <span className="mono">ANTHROPIC_API_KEY</span> (Claude, default) or <span className="mono">AZURE_OPENAI_*</span> on the server.
-            Without a key the Copilot answers from the grounded template engine using the same tools.</div>
-          <label className="field mt" htmlFor="apikey">API key (only if the server sets DEX_API_KEY)</label>
+        <Card title="API access">
+          <label className="field" htmlFor="apikey">API key (only if the server sets DEX_API_KEY)</label>
           <div className="row">
             <input id="apikey" type="text" value={key} onChange={(e) => setKey(e.target.value)} style={{ flex: 1 }} autoComplete="off" />
             <button className="btn btn-ghost" onClick={() => { setApiKey(key.trim()); refreshAll(); setMsg("API key stored in this browser."); }}>Save</button>

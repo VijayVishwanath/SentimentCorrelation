@@ -1,6 +1,6 @@
 import {
   Bar, BarChart, CartesianGrid, Cell, ComposedChart, LabelList, Legend, Line, LineChart, ReferenceLine,
-  ResponsiveContainer, Scatter, ScatterChart, Tooltip, XAxis, YAxis, ZAxis,
+  ResponsiveContainer, Scatter, Tooltip, XAxis, YAxis, ZAxis,
 } from "recharts";
 import { fmt } from "../api";
 import { ChartTip } from "./ui";
@@ -140,19 +140,6 @@ export function ScatterFit({ points, fit, xLabel, height = 280 }: {
         <Scatter isAnimationActive={false} data={points} fill="var(--chart-human)" fillOpacity={0.55} stroke="var(--panel)" strokeWidth={1} />
         {fit && <Line data={line} dataKey="fy" type="linear" stroke="var(--chart-machine)" strokeWidth={2} dot={false} activeDot={false} legendType="none" isAnimationActive={false} />}
       </ComposedChart>
-    </ResponsiveContainer>
-  );
-}
-
-export function MiniScatter({ data, height = 200 }: { data: { x: number; y: number }[]; height?: number }) {
-  return (
-    <ResponsiveContainer width="100%" height={height}>
-      <ScatterChart margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>
-        <CartesianGrid stroke="var(--chart-grid)" />
-        <XAxis type="number" dataKey="x" {...AXIS} />
-        <YAxis type="number" dataKey="y" {...AXIS} />
-        <Scatter data={data} fill="var(--chart-machine)" />
-      </ScatterChart>
     </ResponsiveContainer>
   );
 }

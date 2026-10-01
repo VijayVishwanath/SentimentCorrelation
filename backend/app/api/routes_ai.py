@@ -102,11 +102,6 @@ async def forecast_watchlist(top: int = Query(50, ge=1, le=500), department: str
     return wl
 
 
-@router.get("/forecast/metrics", summary="Predictive DEX — out-of-time backtest vs the rule baseline, drivers")
-async def forecast_metrics(store: DataStore = Depends(store_dep)):
-    return (await run_in_threadpool(forecast.get_forecaster, store)).metrics
-
-
 @router.get("/forecast/devices/{device_id}", summary="Predictive DEX — one device's risk history and explanation")
 async def forecast_device(device_id: str, store: DataStore = Depends(store_dep)):
     if store.device(device_id) is None:

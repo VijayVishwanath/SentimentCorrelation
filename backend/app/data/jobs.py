@@ -17,6 +17,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Callable
 
 from .. import db
 from ..config import get_settings
@@ -59,6 +60,7 @@ class Job:
     error: str | None = None
     issues: list[str] = field(default_factory=list)
     result: dict | None = None
+    source: str | None = None  # dataset-history label; defaults to the file names
 
     def as_dict(self) -> dict:
         d = self.__dict__.copy()
@@ -110,21 +112,22 @@ class JobManager:
         return [self._jobs[i].as_dict() for i in reversed(self._order[-limit:])]
 
     def submit(self, files: list[tuple[str, Path, int]], mode: str, workdir: Path | None,
-               background: bool = True) -> Job:
+               background: bool = True, source: str | None = None,
+               on_done: Callable[[Job], None] | None = None) -> Job:
         with self._lock:
             if any(j.state in ("queued", "running") for j in self._jobs.values()):
                 raise JobBusyError("another dataset is being analysed — wait for it to finish")
             job = Job(id=uuid.uuid4().hex[:12], mode=mode,
-                      files=[{"name": n, "size_bytes": s} for n, _, s in files])
+                      files=[{"name": n, "size_bytes": s} for n, _, s in files], source=source)
             self._jobs[job.id] = job
             self._order.append(job.id)
             if len(self._order) > 50:
                 old = self._order.pop(0)
                 self._jobs.pop(old, None)
         if background:
-            threading.Thread(target=self._run, args=(job, files, workdir), name=f"dataset-{job.id}", daemon=True).start()
+            threading.Thread(target=self._run, args=(job, files, workdir, on_done), name=f"dataset-{job.id}", daemon=True).start()
         else:
-            self._run(job, files, workdir)
+            self._run(job, files, workdir, on_done)
         return job
 
     # ------------------------------------------------------------------ worker
@@ -134,7 +137,8 @@ class JobManager:
                         "message": msg or dict(STAGES)[key]})
         log.info("dataset job %s: %s %s", job.id, key, msg or "")
 
-    def _run(self, job: Job, files: list[tuple[str, Path, int]], workdir: Path | None) -> None:
+    def _run(self, job: Job, files: list[tuple[str, Path, int]], workdir: Path | None,
+             on_done: Callable[[Job], None] | None = None) -> None:
         from ..api.routes_analytics import clear_cache
         from ..copilot.tools import effective_config
         t0 = time.perf_counter()
@@ -174,10 +178,11 @@ class JobManager:
                                       f"{new_store.remediation_metrics_derived} case(s)")
 
             self._stage(job, "publish", "Swapping in the new dataset and refreshing every module")
-            source = ", ".join(f["name"] for f in job.files)[:250]
+            source = (job.source or ", ".join(f["name"] for f in job.files))[:250]
             store_mod.replace_store(frames, source=source, built=new_store)
             clear_cache()
-            threading.Thread(target=_warm, name="post-upload-warmup", daemon=True).start()
+            from ..api.warmup import warm_in_background  # lazy: the api layer imports this module
+            warm_in_background("post-upload-warmup")
 
             job.result = {"rows": report.rows, "report": report.as_dict(), "before": before, "after": after,
                           "dataset": db.latest_dataset_version()}
@@ -194,21 +199,11 @@ class JobManager:
             job.duration_sec = round(time.perf_counter() - t0, 2)
             if workdir:
                 shutil.rmtree(workdir, ignore_errors=True)
-
-
-def _warm() -> None:
-    from ..api import routes_analytics as ra
-    from ..api.deps import Filters
-    try:
-        s, f = store_mod.get_store(), Filters()
-        ra.executive_dashboard(f, s)
-        ra.outcome_report(None, None, s)
-        ra.correlation_analysis(f, s, "frustration")
-        from ..engines import forecast, ml
-        ml.get_model(s)  # ML second opinion retrains off the critical path
-        forecast.get_forecaster(s)  # predictive model: backtest + fit
-    except Exception:
-        log.exception("post-upload warm-up failed")
+            if on_done:
+                try:
+                    on_done(job)
+                except Exception:
+                    log.exception("dataset job %s: completion callback failed", job.id)
 
 
 manager = JobManager()

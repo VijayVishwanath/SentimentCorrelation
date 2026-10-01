@@ -112,7 +112,7 @@ Open the app with the demo dataset loaded and warmed (checklist in section 12).
 | 6:00–6:40 | **Value & Priorities → Annual Benefits** | Show the headline, then one formula card | "**$720K a year, realised**, and each line shows its formula, its inputs and whether the data or an assumption backs it. Change any input and it recalculates live." |
 | 6:40–7:00 | *(back to the panel)* | — | "Find the few. Predict the pain. Fix it first. Prove what it caused. That's DEX Sentinel." |
 
-**If you have two extra minutes:** show the **DEX Copilot** ("Which devices will struggle next week and what should we do?"), or **Upload Dataset**: drop CSVs, watch the stages run, and every screen refreshes with a retrained model.
+**If you have two extra minutes:** show the **DEX Copilot** ("Which devices will struggle next week and what should we do?"), or **Data Sources**: drop CSVs, watch the stages run, and every screen refreshes with a retrained model.
 
 ---
 
@@ -205,7 +205,7 @@ It's twice what today's rules catch with the same number of flagged devices, on 
 They collect telemetry and run sentiment surveys. We read the frustration in every ticket, join it to the device's week, prioritise with an 80/20 Priority Score, and prove fixes causally. We sit on top of them as data sources.
 
 **"How does this plug into our tools?"**
-Today: upload exports from any ITSM or DEX platform; columns such as *Short Description* or *Configuration Item* are recognised automatically. The remediation layer speaks MCP, so any agent platform can call it. Next: live ServiceNow, Intune and Nexthink connectors.
+Today: one click (or a schedule) syncs incidents straight from ServiceNow's Table API, and exports from any other ITSM or DEX platform can still be uploaded; columns such as *Short Description* or *Configuration Item* are recognised automatically. The remediation layer speaks MCP, so any agent platform can call it. Next: Intune and Nexthink connectors.
 
 **"What about privacy?"**
 Everything runs on your server, and it works fully offline. Names can be pseudonymised. The optional LLM only sees what its tools return.
@@ -226,7 +226,7 @@ Everything runs on your server, and it works fully offline. Names can be pseudon
 
 ## 12. Roadmap and our ask
 
-1. **Live connectors:** ServiceNow, Intune Endpoint Analytics, Nexthink, and Teams/telephony transcripts.
+1. **More live connectors:** Intune Endpoint Analytics, Nexthink, and Teams/telephony transcripts (ServiceNow incident sync is live).
 2. **AI text understanding:** LLM-labelled training data and a local embedding model, multilingual, keeping the lexicon as a fallback.
 3. **Closed-loop learning:** executed fixes feed post-fix telemetry back into Outcomes, and the forecaster retrains on technicians' accept/reject feedback.
 4. **Stronger causal proof:** staggered roll-outs (randomised fix order) and per-fix-type uplift over longer windows.
@@ -245,7 +245,7 @@ Everything runs on your server, and it works fully offline. Names can be pseudon
 - [ ] Start the app: `.\run.ps1 -Dev -Port 8010` (UI http://localhost:5173, API http://127.0.0.1:8010/docs), with the demo dataset (2,600 devices) loaded.
 - [ ] Run the pre-demo check: `.venv\Scripts\python scripts\predemo_check.py --api http://127.0.0.1:8010`. It waits for the warm-up, times every demo view and prints the headline numbers to say out loud. Every view should be under 1 s.
 - [ ] Check the **demo device** the script prints (DEV-02011 at the time of writing): the highest-risk device whose fix is still pending. Devices already fixed show *fix applied* instead of a Fix now button.
-- [ ] Fix Now executions are recorded: rehearse on a Critical Few row you won't show live, or use **Upload Dataset → Restore** and re-upload the demo data afterwards.
+- [ ] Fix Now executions are recorded: rehearse on a Critical Few row you won't show live, or use **Data Sources → Restore** and re-upload the demo data afterwards.
 - [ ] Remote judges: `ngrok http 5173` and share the fresh link; any `*.ngrok-free.app` host is allowed.
 - [ ] Optional: set `ANTHROPIC_API_KEY` for richer Copilot answers; the offline engine works without it.
 - [ ] Backup: screenshots of every talk-track screen are in [docs/demo-backup/](demo-backup/), in case of network problems.

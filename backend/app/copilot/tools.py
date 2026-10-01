@@ -141,7 +141,7 @@ def find_at_risk_devices(department: str | None = None, limit: int = 5) -> dict:
                                         telemetry_severity=("telemetry_severity", "mean"),
                                         tickets=("ticket_count", "sum"),
                                         burden=("experience_burden", "mean")).reset_index()
-    g["risk"] = g["telemetry_severity"] * 0.6 + g["burden"] * 0.4
+    g["risk"] = tel.rule_risk(g["telemetry_severity"], g["burden"])
     sev_cols = [f"sev_{c}" for c in CATEGORIES]
     sevf = tel.category_severity_frame(window)
     sev = window[["device_id"]].join(sevf.add_prefix("sev_")).groupby("device_id")[sev_cols].mean()

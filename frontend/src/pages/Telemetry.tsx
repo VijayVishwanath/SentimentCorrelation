@@ -19,10 +19,10 @@ function DeviceTable() {
   const { filters } = useFilters();
   const nav = useNavigate();
   const st = useServerTable(5);
-  const res = useApi(`/v1/telemetry/devices${qsOf({ ...filters, ...st.params })}`);
+  const res = useApi(`/v1/telemetry/devices${qsOf({ sort: "health", ...filters, ...st.params })}`);
   const d: Any = res.data;
   return (
-    <Card title="Device fleet" sub="latest-week vitals; risk = 60% telemetry severity + 40% frustration burden. Sort and filter from the headers; click a row for Device 360."
+    <Card title="Device fleet" sub="latest-week vitals, worst health first. Predicted risk is on Proactive Watchlist. Sort and filter from the headers; click a row for Device 360."
           right={d && <span className="chip">{fmt.i(d.total)} devices</span>}>
       {res.error && !d ? <ErrorBox error={res.error} /> : !d ? <Loading /> : (
         <div className={res.isPlaceholderData ? "stale" : ""}>
@@ -40,7 +40,6 @@ function DeviceTable() {
             { key: "policy_compliant", label: "Policy", filter: "select", options: YES_NO, optionLabels: { true: "Compliant", false: "Non-compliant" },
               render: (r: Any) => r.policy_compliant ? <span className="state-ok">Compliant</span> : <span className="state-critical">Non-compliant</span> },
             { key: "tickets", label: "Tickets", num: true, filter: "num" },
-            { key: "risk_score", label: "Risk", num: true, filter: "num" },
             { key: "remediated", label: "Fixed", filter: "select", options: YES_NO, optionLabels: { true: "Fixed", false: "Not fixed" },
               render: (r: Any) => r.remediated ? <CheckCircle2 size={14} className="machine" aria-label="remediated" /> : "" },
           ]} />

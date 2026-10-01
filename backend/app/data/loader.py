@@ -188,16 +188,6 @@ def read_csv_table(source: str | Path | bytes, filename: str = "data.csv") -> tu
     return detect_table(list(df.columns), Path(filename).stem), df
 
 
-def read_csvs(files: dict[str, bytes]) -> dict[str, pd.DataFrame]:
-    """Backwards-compatible helper: {name: csv bytes} -> {table: frame}."""
-    out: dict[str, pd.DataFrame] = {}
-    for name, content in files.items():
-        table, df = read_csv_table(content, name)
-        if table:
-            out[table] = df
-    return out
-
-
 # ---------------------------------------------------------------- coercion helpers
 def _to_bool(v):
     if isinstance(v, (bool, np.bool_)):

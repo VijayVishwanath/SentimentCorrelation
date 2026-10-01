@@ -414,7 +414,7 @@ def telemetry_devices(request: Request, f: Filters = Depends(filters), store: Da
             "avg_device_health": j["avg_health"].round(1).values,
             "telemetry_severity": j["avg_severity"].round(1).values, "tickets": j["tickets"].fillna(0).astype(int).values,
             "eei": (100 - j["burden"]).round(1).values,
-            "risk_score": (j["avg_severity"] * 0.6 + j["burden"] * 0.4).round(1).values,
+            "risk_score": tel.rule_risk(j["avg_severity"], j["burden"]).round(1).values,
             "boot_duration_sec": j["boot_duration_sec"].values,
             "app_hang_count": j["app_hang_count"].round().astype("Int64").values,
             "network_latency_ms": j["network_latency_ms"].values,

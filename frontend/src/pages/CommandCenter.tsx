@@ -20,28 +20,6 @@ function Roadmap({ from, to }: { from: number; to: number }) {
   );
 }
 
-/** Departments sit within a few DEX points of each other, so bars are scaled to the observed range. */
-function DepartmentList({ rows, fleet }: { rows: Any[]; fleet: number }) {
-  const vals = rows.map((r) => r.dex_score as number);
-  const lo = Math.min(...vals) - 1, hi = Math.max(...vals);
-  return (
-    <div>
-      {rows.map((r, i) => {
-        const gap = r.dex_score - fleet;
-        return (
-          <div className="rank-row" key={r.group} title={`avg frustration ${fmt.n(r.avg_frustration)}`}
-               style={{ gridTemplateColumns: "18px minmax(110px, 150px) 1fr 92px" }}>
-            <span className="rn">{i + 1}</span><span style={{ fontWeight: i === 0 ? 800 : 600 }}>{r.group}</span>
-            <div className="bar-track"><div className="bar-fill" style={{ width: `${(100 * (r.dex_score - lo)) / Math.max(0.1, hi - lo)}%`,
-              background: gap < 0 ? "var(--chart-human)" : "var(--chart-machine)", opacity: i === 0 ? 1 : 0.6 }} /></div>
-            <span className="rc">{fmt.n(r.dex_score)} <span className={gap < 0 ? "crit" : "good"}>{fmt.signed(gap)}</span></span>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
 function ActionCard({ a, rank, department }: { a: Any; rank: number; department?: string }) {
   return (
     <div className="card" style={{ display: "flex", flexDirection: "column", gap: 10, borderTop: `3px solid ${rank === 1 ? "var(--critical)" : "var(--human)"}` }}>
@@ -92,9 +70,11 @@ export default function CommandCenter() {
             </div>
 
             <div className="grid g-4">
-              <Kpi label="DEX Score" icon={<Gauge size={12} />} value={fmt.n(h.dex_score)} unit="/100" accent={bandColor(h.dex_band)}
-                   delta={h.dex_delta} deltaLabel={`${h.dex_band} · ${fmt.signed(h.dex_delta)} pts this period`}
-                   hint="0.35·Experience + 0.25·Device health + 0.20·Remediation success + 0.10·Resolution + 0.10·Sentiment trend" />
+              <Link to={`/dex-score${qs}`} style={{ color: "inherit", textDecoration: "none" }} title="Open the DEX Score breakdown by component and cohort">
+                <Kpi label="DEX Score" icon={<Gauge size={12} />} value={fmt.n(h.dex_score)} unit="/100" accent={bandColor(h.dex_band)}
+                     delta={h.dex_delta} deltaLabel={`${h.dex_band} · ${fmt.signed(h.dex_delta)} pts · by department →`}
+                     hint="0.35·Experience + 0.25·Device health + 0.20·Remediation success + 0.10·Resolution + 0.10·Sentiment trend" />
+              </Link>
               <Kpi label={h.predicted.available ? `Predicted · week ${h.predicted.week}` : "Predicted next week"} icon={<BellRing size={12} />}
                    value={h.predicted.available ? fmt.n(h.predicted.frustrated_tickets, 0) : "—"} accent="var(--human)"
                    deltaLabel={h.predicted.available ? "frustrated tickets expected" : "needs more history"}
@@ -136,7 +116,7 @@ export default function CommandCenter() {
               {d.actions.slice(0, 3).map((a: Any, i: number) => <ActionCard key={a.category} a={a} rank={i + 1} department={filters.department} />)}
             </div>
 
-            <div className="grid g-split mt">
+            <div className="mt">
               <Card title="Who is at risk next week" sub="highest predicted risk · click for Device 360"
                     right={<Link to="/proactive" className="btn btn-ghost btn-sm">Full watchlist <ArrowRight size={12} /></Link>}>
                 <DataTable rows={d.watchlist} onRow={(r: Any) => nav(`/devices/${r.device_id}`)} columns={[
@@ -147,11 +127,8 @@ export default function CommandCenter() {
                     ? <FixNowButton small label="Fix" target={{ category: r.category, deviceIds: [r.device_id] }} /> : null },
                 ]} />
               </Card>
-              <Card title="DEX by department" sub={`lowest first · gap to fleet ${fmt.n(h.dex_score)}`}>
-                <DepartmentList rows={d.departments} fleet={h.dex_score} />
-              </Card>
             </div>
-            <footer className="foot">Simulated dataset · every number traces to the analysis pages under Analyze</footer>
+            <footer className="foot">Simulated dataset · every number traces to the analysis pages under Evidence</footer>
           </>
         );
       }}

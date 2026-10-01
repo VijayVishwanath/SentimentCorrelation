@@ -2,7 +2,7 @@ import { Download } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
 import { Any, downloadFile, fmt, qsOf, useApi } from "../api";
 import { PrePostBars } from "../components/charts";
-import { Card, ChartCard, DataTable, Kpi, MoneyChip, PrePost, QueryState } from "../components/ui";
+import { Card, ChartCard, DataTable, Kpi, PrePost, QueryState } from "../components/ui";
 
 
 function downloadCsv(category: string) {
@@ -94,12 +94,10 @@ export default function Outcomes() {
       <QueryState q={q} label="Measuring before vs after for every fix…">
         {(d: Any) => !d.cases ? <div className="empty">No remediation cases</div> : (
           <>
-            <div className="grid g-3">
+            <div className="grid g-2">
               <Kpi label="Experience Recovery %" value={fmt.signed(d.dex.experience_recovery_pct)} unit="%" accent="var(--machine)"
                    deltaLabel={`DEX ${fmt.n(d.dex.before.dex_score)} → ${fmt.n(d.dex.after.dex_score)} (remediated cohort)`} delta={d.dex.experience_recovery_pct} />
               <Kpi label="Cases improved" value={`${d.improved_cases}/${d.cases}`} accent="var(--machine)" deltaLabel="repeat rate and ticket rate both down or flat" />
-              <Kpi label="Annualised value" tag={<MoneyChip kind="naive" />} value={fmt.usd(d.business_impact.total_annual_savings_usd)} accent="var(--machine)"
-                   deltaLabel={`${fmt.n(d.business_impact.annual_tickets_avoided, 0)} tickets avoided · ${fmt.n(d.business_impact.productivity_hours_recovered, 0)} h recovered`} />
             </div>
             <div className="grid g-4 mt">
               {([["frustration", "Avg frustration score", 1, ""], ["repeat_rate", "Repeat-contact rate", 1, "%"], ["ticket_rate", "Tickets / week", 2, ""], ["boot", "Avg boot (s)", 1, ""]] as const).map(([key, label, dd, suf]) => {
@@ -110,24 +108,11 @@ export default function Outcomes() {
             </div>
             <CausalCard category={category} />
 
-            <div className="grid g-split mt">
-              <ChartCard title="DEX Score before vs after, by root cause" sub="same devices, pre-fix weeks vs post-fix weeks"
+            <div className="mt"><ChartCard title="DEX Score before vs after, by root cause" sub="same devices, pre-fix weeks vs post-fix weeks"
                          table={all.data?.by_category || []} columns={[{ key: "category", label: "Root cause" }, { key: "cases", label: "Cases", num: true }, { key: "dex_before", label: "DEX before", num: true }, { key: "dex_after", label: "DEX after", num: true }, { key: "recovery_pct", label: "Recovery %", num: true }]}>
                 {all.data && <PrePostBars data={all.data.by_category.map((c: Any) => ({ name: c.category, pre: c.dex_before, post: c.dex_after }))} />}
-              </ChartCard>
-              <Card title="Business impact (naive before/after)" sub="annualised from the remediated cohort; the causal share is on Annual Benefits" right={<Link to="/settings" className="note">Edit assumptions →</Link>}>
-                <dl className="kv">
-                  <dt>Tickets avoided</dt><dd className="mono">{fmt.n(d.business_impact.annual_tickets_avoided, 0)} / yr</dd>
-                  <dt>Support savings</dt><dd className="mono">{fmt.usd(d.business_impact.support_cost_savings_usd)}</dd>
-                  <dt>Hours recovered</dt><dd className="mono">{fmt.n(d.business_impact.productivity_hours_recovered, 0)} h</dd>
-                  <dt>Productivity value</dt><dd className="mono">{fmt.usd(d.business_impact.productivity_savings_usd)}</dd>
-                  <dt>Total</dt><dd className="mono" style={{ fontWeight: 700 }}>{fmt.usd(d.business_impact.total_annual_savings_usd)}</dd>
-                  <dt>Per device</dt><dd className="mono">{fmt.usd(d.business_impact.savings_per_remediated_device_usd)}</dd>
-                </dl>
-                <div className="note mt">Assumptions: ${d.business_impact.assumptions.cost_per_ticket_usd}/ticket, ${d.business_impact.assumptions.hourly_employee_cost_usd}/h,
-                  {" "}{d.business_impact.assumptions.productivity_loss_factor * 100}% productivity loss during {d.business_impact.assumptions.avg_resolution_hours} h avg resolution.</div>
-              </Card>
-            </div>
+              </ChartCard></div>
+            <div className="note mt">Dollar value of these outcomes (causal share only) is on <Link to="/roi">Value &amp; Priorities</Link>.</div>
 
             <Card className="mt" title="By root cause" sub="aggregate across cases — the statistically meaningful read">
               <DataTable rows={d.by_category} pageSize={5} sortable columns={[

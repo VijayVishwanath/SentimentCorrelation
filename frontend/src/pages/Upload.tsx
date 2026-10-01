@@ -3,9 +3,10 @@ import {
   AlertTriangle, ArrowRight, CheckCircle2, CircleDashed, Download, FileSpreadsheet, FileText, Loader2,
   RotateCcw, UploadCloud, X, XCircle,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { Any, api, ApiError, downloadFile, fmt, getApiKey, useApi } from "../api";
+import ServiceNowSync from "../components/ServiceNowSync";
 import { Card, DataTable, ErrorBox, QueryState } from "../components/ui";
 
 const MAX_MB = 200;
@@ -233,6 +234,7 @@ export default function UploadPage() {
       setJob(j); setJobId(j.id);
     } catch (e) { setErr(e); } finally { setUploadPct(null); }
   };
+  const onSyncJob = useCallback((j: Any) => { setErr(null); setJob(j); setJobId(j.id); }, []);
   const restore = async () => {
     setErr(null); setJob(null);
     try { const j = await api("/v1/datasets/restore-sample", { method: "POST" }); setJob(j); setJobId(j.id); } catch (e) { setErr(e); }
@@ -242,10 +244,11 @@ export default function UploadPage() {
     <>
       <div className="page-head">
         <div>
-          <div className="eyebrow">Upload Dataset</div>
+          <div className="eyebrow">Data Sources</div>
           <h2>Analyse new real-time data</h2>
-          <p>Upload fresh service-desk and endpoint-telemetry exports. DEX Sentinel validates and normalises them, re-runs
-            sentiment scoring, telemetry correlation, diagnosis and outcome analytics, and refreshes every dashboard.</p>
+          <p>Sync incidents straight from ServiceNow, on demand or on a schedule, or upload service-desk and
+            endpoint-telemetry exports. Either way DEX Sentinel validates and normalises the data, re-runs sentiment
+            scoring, telemetry correlation, diagnosis and outcome analytics, and refreshes every dashboard.</p>
         </div>
       </div>
 
@@ -256,6 +259,8 @@ export default function UploadPage() {
           or is redeployed. Keep your source files to re-upload.
         </div>
       )}
+      <div style={{ marginBottom: 14 }}><ServiceNowSync onJob={onSyncJob} busy={!!busy} /></div>
+
       <div className="grid g-split">
         <Card title="Upload new data" sub={`.xlsx workbook (one sheet per table) or .csv files (one per table) · up to ${maxMb} MB each · max 10 files`}>
           <div className="row" style={{ marginBottom: 12 }}>

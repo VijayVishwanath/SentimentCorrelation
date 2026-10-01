@@ -22,7 +22,7 @@ const NAV = [  // ordered as the story: see it, predict and diagnose it, fix it 
   { to: "/telemetry", label: "Telemetry", icon: Cpu, n: "" },
   { to: "/correlation", label: "Correlation", icon: GitCompareArrows, n: "" },
   { section: "ADMIN" },
-  { to: "/upload", label: "Upload Dataset", icon: UploadCloud, n: "" },
+  { to: "/upload", label: "Data Sources", icon: UploadCloud, n: "" },
   { to: "/settings", label: "Data & Settings", icon: Settings, n: "" },
 ] as const;
 

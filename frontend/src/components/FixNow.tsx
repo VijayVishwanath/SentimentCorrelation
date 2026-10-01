@@ -4,18 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
 import { Any, api, fmt, qsOf, useApi } from "../api";
-import { DataTable, ErrorBox, Kpi, Loading } from "./ui";
+import { DataTable, ErrorBox, Kpi, Loading, StatusBadge as Badge } from "./ui";
 
-const STATUS_COLOR: Record<string, string> = {
-  planned: "var(--text-dim)", fixed: "var(--machine)", rolled_back: "var(--critical)", completed: "var(--machine)",
-  partial: "var(--human)", failed: "var(--critical)", nothing_to_fix: "var(--text-dim)",
-};
 const usd = fmt.usdShort;
-
-function Badge({ s }: { s: string }) {
-  const c = STATUS_COLOR[s] || "var(--text-dim)";
-  return <span className="badge" style={{ color: c, borderColor: c }}>{s.replace(/_/g, " ")}</span>;
-}
 
 export interface FixTarget { category: string; signal?: string; deviceIds?: string[]; department?: string }
 
@@ -62,7 +53,7 @@ function FixDrawer({ target, onClose }: { target: FixTarget; onClose: () => void
     return () => window.removeEventListener("keydown", onKey, true);
   }, [onClose]);
   useEffect(() => { titleRef.current?.focus(); }, [rb]);
-  const deviceLink = (r: Any) => <Link className="mono" to={`/device/${r.device_id}`} onClick={onClose}><b>{r.device_id}</b></Link>;
+  const deviceLink = (r: Any) => <Link className="mono" to={`/devices/${r.device_id}`} onClick={onClose}><b>{r.device_id}</b></Link>;
   return (
     <>
       <div className="drawer-bg" onClick={onClose} />

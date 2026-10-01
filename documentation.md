@@ -113,7 +113,7 @@ A single **DEX Score** (0–100) summarises all of this for leadership. Module 8
 | M5 | **DEX Copilot** | Ask questions in plain English | Ticket summary, root-cause explanation, evidence, remediation steps, expected outcome, business impact, with citations |
 | M6 | **Outcome Reporting** | Did the fix work, and did it *cause* the change? | Before vs after frustration, repeat-contact rate, tickets/week, DEX Score, Experience Recovery %, **causal uplift vs matched never-fixed devices** (95% interval), $ value, CSV export |
 | M7 | **DEX Score** | The single outcome number, explained | Formula, 5 components, trends, cohort ranking, what-if simulator |
-| M8 | **Upload Dataset** | Analyse new real-time data | Upload .xlsx/.csv (up to 200 MB per file), **Submit for Analysis**, before/after comparison, all screens refreshed |
+| M8 | **Data Sources** | Analyse new real-time data | Upload .xlsx/.csv (up to 200 MB per file), **Submit for Analysis**, before/after comparison, all screens refreshed |
 | — | **Device 360** | Everything about one device | **Next-week risk panel** (risk %, why, proactive fix, risk history against what actually happened), telemetry history with the fix week marked, tickets, remediations |
 | — | **Data & Settings** | Administration | Business-impact assumptions, AI model evaluation, API key |
 
@@ -768,14 +768,14 @@ Open the app (see [section 15](#15-installing-and-running)). Use the **filter ro
 | **Value & Priorities** | Two tabs. *Annual Benefits*: the yearly value, four formula cards with editable inputs and their source. *Critical Few · 80/20*: four "X% of issue types → Y% of the impact" tiles, a Pareto chart, and the priority ranking (problem → future risk → solution → ROI) | Edit an input to test a scenario, then **Save as defaults**. On Critical Few click a tile to change the Pareto measure, and **Fix now** on a row. |
 | **Software Remediation** | The request inbox (email-driven removals), parsed request, safety checks, dry-run plan, approval, results, audit trail and run history | Create the dry-run plan, enter the approver's name, then execute. Runbook runs from **Fix now** also appear here. |
 | **Proactive Watchlist** *(new)* | KPIs (devices at elevated risk, expected frustrated tickets, share caught a week early vs rules, avoidable value), the ML-vs-rules backtest, driver importance, the ranked watchlist (risk, band, why, likely cause, proactive fix + runbook, avoidable tickets), calibration chart | Filter by department and choose Top 25/50/100. Click a device to see its risk history and fix. |
-| **M1 Experience Analytics** | Ticket KPIs, frustration by week, severity, emotion, the repeat-contact ladder (frustration rises with each repeat), channel/category breakdowns, a live text analyser, a ticket explorer | Paste any text into the analyser to see its score and which phrases fired. |
+| **M1 Experience Analytics** | Ticket KPIs, frustration by week, severity, emotion, the repeat-contact ladder (frustration rises with each repeat), channel/category breakdowns, top frustration language, a ticket explorer | Click a score in the ticket explorer to see which phrases fired; score new text on Diagnosis Assist. |
 | **M2 Telemetry Intelligence** | Device health KPIs, weekly signal trends, threshold breaches, health bands, device model comparison, a searchable device fleet table | Sort by risk to find devices to fix proactively. |
 | **M3 Correlation Engine** | Correlation score, lift cards, frustration by severity bucket, compliance incidence, impact ranking, correlation matrix, risk and frustration heatmaps, scatter with trend line | Switch the score basis; change the heatmap grouping; pick a signal for the scatter. |
 | **M4 Diagnosis Assist** | Intake (ticket, device, week, repeats, escalations) and engine output (frustration, ranked causes, sub-cause, evidence, fix, expected outcome, ML opinion), plus the device vitals and ticket history | Pick a ticket and click **Run diagnosis**, then **Explain with DEX Copilot**. |
 | **M5 DEX Copilot** | Chat with structured answers, citations, a tool-call trace and the knowledge-base browser | Try a suggested question, or add a device and ticket for a root-cause answer. |
 | **M6 Outcome Reporting** | Experience Recovery, cases improved, value, before/after KPIs, **Did the fix cause it?** (naive vs causal uplift per root cause), DEX by root cause, business impact, the case register | Filter by root cause (or arrive from **Fix now → See the proven outcome**); **Export CSV**. |
 | **M7 DEX Score** | Formula and definitions, what-if simulator, component trends, cohort ranking | Move the sliders to see how improving a component changes the score. |
-| **M8 Upload Dataset** | Upload area, active dataset card, stage-by-stage progress, before/after comparison, derivations, column guide with CSV templates, upload history | Drop files, choose **Replace** or **Append**, click **Submit for Analysis**. |
+| **M8 Data Sources** | Upload area, active dataset card, stage-by-stage progress, before/after comparison, derivations, column guide with CSV templates, upload history | Drop files, choose **Replace** or **Append**, click **Submit for Analysis**. |
 | **Device 360** | Latest vitals; **next-week risk** (risk %, why, proactive fix, expected outcome) and **risk history** (out-of-time predictions against whether a frustrated ticket actually followed); weekly charts with the fix week marked; remediations with before/after; ticket history | Click **Diagnose latest ticket**. |
 | **Data & Settings** | Dataset summary, business-impact assumptions, AI model evaluation (root-cause models **and** the predictive model vs rules), Copilot status, API key | Adjust the cost assumptions; business value and watchlist value recalculate. |
 
@@ -807,7 +807,7 @@ Base URL: `http://<host>:<port>/api`. Interactive documentation: **`/docs`**. If
 | GET | `/v1/diagnosis/recent` | Diagnosis audit log |
 | GET | `/v1/models/metrics` | ML and rule-engine evaluation (now includes `forecast`) |
 | GET | `/v1/forecast/watchlist` | **Predictive** watchlist for next week (`top` 1–500, `department`): summary, ranked devices with drivers, fix, value, and model metrics |
-| GET | `/v1/forecast/metrics` | Backtest (ML vs rules), calibration deciles, driver importance |
+| GET | `/v1/models/metrics` | Root-cause accuracy, sentiment agreement and (under `forecast`) the backtest, calibration deciles, driver importance |
 | GET | `/v1/forecast/devices/{device_id}` | One device's current risk + explanation and its risk history |
 | POST | `/v1/copilot/ask` | M5 Copilot |
 | GET | `/v1/copilot/status` | Active LLM provider |
@@ -867,8 +867,8 @@ Run them with `.\run.ps1 -Test`.
 ```powershell
 cd backend
 ..\.venv\Scripts\python -m app.data.simulator --devices 5000 --weeks 26 --seed 7 --out ..\data\sim
-# then open Upload Dataset, drop devices.csv, telemetry.csv, tickets.csv, remediations.csv → Submit for Analysis
-# then open Proactive Watchlist (or GET /api/v1/forecast/metrics)
+# then open Data Sources, drop devices.csv, telemetry.csv, tickets.csv, remediations.csv → Submit for Analysis
+# then open Proactive Watchlist (or GET /api/v1/models/metrics)
 ```
 
 ---
@@ -933,7 +933,7 @@ Uploaded data resets on restart (demo tier). Full guide, costs, operations and t
 
 ### Load the large benchmark dataset (recommended for the predictive demo)
 
-The bundled 260-device sample is too small for a meaningful predictive benchmark, and the page flags it as *low sample*. Generate the 5,000-device fleet ([13.3](#133-end-to-end-and-scale-verification)) and upload it through **Upload Dataset**. The first request to the watchlist after a restart or upload waits while the model trains (about 20–30 s); after that it is instant. **Restore sample dataset** returns to the bundled data.
+The bundled 260-device sample is too small for a meaningful predictive benchmark, and the page flags it as *low sample*. Generate the 5,000-device fleet ([13.3](#133-end-to-end-and-scale-verification)) and upload it through **Data Sources**. The first request to the watchlist after a restart or upload waits while the model trains (about 20–30 s); after that it is instant. **Restore sample dataset** returns to the bundled data.
 
 ### Share the app with others (ngrok)
 
@@ -1051,10 +1051,10 @@ Scores and correlations come from transparent rules and statistics. The predicti
 The at-risk list is a fixed formula on current levels (60% telemetry severity + 40% frustration burden). The predictive model learns from *trends*: a boot time rising 20 s a week matters before it crosses a threshold. It also learns from each device's history, and it is calibrated. In the same backtest it catches 72% of next-week frustrated tickets against 49% for the formula.
 
 **Can I reproduce the model numbers?**
-Yes. Run the seeded simulator (`--seed 7`), upload the CSVs, and open the Proactive Watchlist or `GET /api/v1/forecast/metrics`. The automated tests also check that the model beats the rule baseline on unseen weeks.
+Yes. Run the seeded simulator (`--seed 7`), upload the CSVs, and open the Proactive Watchlist or `GET /api/v1/models/metrics`. The automated tests also check that the model beats the rule baseline on unseen weeks.
 
 **Can I use my own data?**
-Yes. Use **M8 Upload Dataset**: `.xlsx` or `.csv`, up to 200 MB per file. Only telemetry and tickets are required, and common export column names are recognised automatically.
+Yes. Use **M8 Data Sources**: `.xlsx` or `.csv`, up to 200 MB per file. Only telemetry and tickets are required, and common export column names are recognised automatically.
 
 **What happens if my upload is wrong?**
 The analysis stops, lists the problems, and the current data stays exactly as it was.

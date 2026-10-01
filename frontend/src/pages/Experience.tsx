@@ -1,50 +1,10 @@
-import { useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { Any, fmt, qsOf, sevColor, useApi, useFilters, usePost } from "../api";
+import { Any, fmt, qsOf, sevColor, useApi, useFilters } from "../api";
 import { Bars, TrendChart } from "../components/charts";
 import { ExplainButton } from "../components/Explain";
-import { Card, ChartCard, DataTable, ErrorBox, Kpi, Loading, Meter, QueryState, SevBadge, useServerTable } from "../components/ui";
+import { Card, ChartCard, DataTable, ErrorBox, Kpi, Loading, QueryState, SevBadge, useServerTable } from "../components/ui";
 
 const SEV_ORDER = ["Low", "Medium", "High", "Critical"];
-
-function Analyzer() {
-  const [text, setText] = useState("This is the 3 time I'm reporting this exact issue. Outlook keeps crashing and this is unacceptable.");
-  const [rep, setRep] = useState(2);
-  const [esc, setEsc] = useState(0);
-  const m = usePost<{ text: string; repeat_contacts: number; escalations: number }>("/v1/experience/analyze");
-  const r: Any = m.data;
-  return (
-    <Card title="Live sentiment & frustration analyser" sub="keyword lexicon (93.3% agreement with the ground-truth tier on simulated tickets) + repeat/escalation boost">
-      <label className="field" htmlFor="an-text">Ticket, call note or chat message</label>
-      <textarea id="an-text" rows={3} value={text} onChange={(e) => setText(e.target.value)} />
-      <div className="row mt">
-        <label className="field" style={{ margin: 0 }}>Prior contacts</label>
-        <input type="number" min={0} max={20} value={rep} onChange={(e) => setRep(+e.target.value)} style={{ width: 64 }} />
-        <label className="field" style={{ margin: 0 }}>Escalations</label>
-        <input type="number" min={0} max={5} value={esc} onChange={(e) => setEsc(+e.target.value)} style={{ width: 64 }} />
-        <button className="btn btn-primary" disabled={!text.trim() || m.isPending} onClick={() => m.mutate({ text, repeat_contacts: rep, escalations: esc })}>Analyse</button>
-      </div>
-      {m.error && <div className="mt"><ErrorBox error={m.error} /></div>}
-      {r && (
-        <div className="mt">
-          <Meter value={r.frustration_score} color={sevColor(r.severity)}
-                 label={<span className="mono" style={{ color: sevColor(r.severity), fontWeight: 700 }}>{r.frustration_score}/100</span>} />
-          <div className="grid g-4 mt">
-            <div className="vital"><div className="k">Severity</div><div className="v"><SevBadge sev={r.severity} /></div></div>
-            <div className="vital"><div className="k">Emotion</div><div className="v" style={{ fontSize: 14 }}>{r.emotion}</div></div>
-            <div className="vital"><div className="k">Sentiment</div><div className="v">{fmt.n(r.sentiment, 2)}</div></div>
-            <div className="vital"><div className="k">Text-only score</div><div className="v">{r.text_score}</div></div>
-          </div>
-          <div className="note mt">
-            {r.matched_phrases.length ? <>Matched: {r.matched_phrases.map((p: Any) => `“${p.phrase}” (+${p.weight})`).join(", ")}</> : "No frustration phrases matched (baseline 8)."}
-            {(r.repeat_contacts || r.escalations) ? ` · behaviour boost +${r.repeat_contacts * 10 + r.escalations * 15}` : ""}
-          </div>
-          <div className="mt"><ExplainButton source={{ text, repeat: rep, escalations: esc }}>How was this computed?</ExplainButton></div>
-        </div>
-      )}
-    </Card>
-  );
-}
 
 function TicketExplorer() {
   const { filters } = useFilters();
@@ -145,9 +105,9 @@ export default function Experience() {
                 <Bars data={d.histogram.map((h: Any) => ({ ...h, band: h.bin.split("-")[0] }))} x="band" y="count" name="Tickets" color="var(--chart-human)" height={190} yFmt={(v) => fmt.i(v)} />
               </ChartCard>
             </div>
-            <div className="grid g-split mt">
-              <Analyzer />
-              <Card title="Top frustration language" sub="phrases weighted by the lexicon">
+            <div className="mt">
+              <Card title="Top frustration language" sub="phrases weighted by the lexicon · score a new ticket on Diagnosis Assist"
+                    right={<Link to="/diagnosis" className="note">Score a ticket →</Link>}>
                 <DataTable rows={d.drivers.phrases} pageSize={5} sortable columns={[
                   { key: "phrase", label: "Phrase", filter: "text", render: (r: Any) => <span>“{r.phrase}”</span> },
                   { key: "weight", label: "Weight", num: true, filter: "num" },

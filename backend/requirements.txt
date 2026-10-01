@@ -13,6 +13,7 @@ scikit-learn==1.9.1
 lightgbm==4.7.0         # predictive DEX model (engines/forecast.py)
 openpyxl==3.1.5
 python-calamine==0.8.2  # fast .xlsx reader for large uploads
+httpx==0.28.1           # ServiceNow Table API client (app/integrations/servicenow)
 # DEX Copilot LLM providers (optional at runtime; template engine works without keys)
 anthropic==1.9.0
 openai==3.20.0

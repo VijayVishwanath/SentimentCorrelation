@@ -442,3 +442,17 @@ export function ChartTip({ active, payload, label, title, fmtValue }: {
     </div>
   );
 }
+
+/** Run, device and request states shared by Software Remediation and Fix now. */
+export const STATUS_COLOR: Record<string, string> = {
+  pending: "var(--human)", processed: "var(--machine)", rejected: "var(--critical)",
+  safe: "var(--machine)", warning: "var(--human)", blocked: "var(--critical)",
+  planned: "var(--text-dim)", removed: "var(--machine)", fixed: "var(--machine)", rolled_back: "var(--critical)",
+  skipped_blocked: "var(--serious)", verification_failed: "var(--critical)", completed: "var(--machine)",
+  partial: "var(--human)", failed: "var(--critical)", nothing_to_remove: "var(--text-dim)", nothing_to_fix: "var(--text-dim)",
+};
+
+export function StatusBadge({ s, color }: { s: string; color?: string }) {
+  const c = color || STATUS_COLOR[s] || "var(--text-dim)";
+  return <span className="badge" style={{ color: c, borderColor: c }}>{s.replace(/_/g, " ")}</span>;
+}

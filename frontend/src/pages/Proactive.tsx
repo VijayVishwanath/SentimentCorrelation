@@ -71,7 +71,7 @@ export default function Proactive() {
         {(d: Any) => !d.available ? (
           <Card title="Predictive model not available for this dataset">
             <p>{d.reason}</p>
-            <p className="note">Upload more history on the Upload Dataset page, or generate a large simulated fleet with
+            <p className="note">Sync or upload more history on the Data Sources page, or generate a large simulated fleet with
               <span className="mono"> python -m app.data.simulator --devices 5000 --weeks 26</span> (run in <span className="mono">backend/</span>) and upload the four CSVs.</p>
           </Card>
         ) : (
