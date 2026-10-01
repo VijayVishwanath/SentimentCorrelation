@@ -1,4 +1,5 @@
 import { Download } from "lucide-react";
+import { AnalystOnly } from "../components/analyst";
 import { Link, useSearchParams } from "react-router-dom";
 import { Any, downloadFile, fmt, qsOf, useApi } from "../api";
 import { PrePostBars } from "../components/charts";
@@ -53,6 +54,7 @@ function CausalCard({ category }: { category: string }) {
         <span><i style={{ display: "inline-block", width: 9, height: 9, borderRadius: 2, background: "var(--chart-machine)", marginRight: 6 }} />Caused by the fix</span>
         <span><i style={{ display: "inline-block", width: 9, height: 9, borderRadius: 2, background: "var(--chart-neutral)", marginRight: 6 }} />Would have happened anyway (matched unfixed devices)</span>
       </div>
+      <AnalystOnly>
       <DataTable rows={u.by_category.map((c: Any) => ({ category: c.category, cases: c.cases, t_naive: c.tickets.naive_change, t_uplift: c.tickets.uplift,
         t_ci: `${fmt.n(c.tickets.ci95[0], 2)} to ${fmt.n(c.tickets.ci95[1], 2)}`, f_uplift: c.frustration.uplift, sig: c.tickets.significant && c.frustration.significant }))} columns={[
         { key: "category", label: "Root cause", render: (r: Any) => <b>{r.category}</b> },
@@ -65,6 +67,7 @@ function CausalCard({ category }: { category: string }) {
       ]} />
       <div className="note mt">{u.method} Pre-fix ticket rate: fixed {fmt.n(o.balance.pre_tickets_treated, 2)} vs matched {fmt.n(o.balance.pre_tickets_control, 2)} per week.
         Annual Benefits counts only the causal tickets.</div>
+      </AnalystOnly>
     </Card>
   );
 }
@@ -81,8 +84,7 @@ export default function Outcomes() {
         <div>
           <div className="eyebrow">Outcome Reporting</div>
           <h2>Did the fix actually improve the experience?</h2>
-          <p>Before vs after every remediation: frustration, repeat-contact rate, ticket volume and DEX Score. Tickets close on
-            verified recovery, not on silence.</p>
+          <p>Before vs after every fix, and how much of the change the fix itself caused.</p>
         </div>
         <div className="row">
           <select value={category} onChange={(e) => setCategory(e.target.value)} aria-label="Root cause">
@@ -112,7 +114,7 @@ export default function Outcomes() {
                          table={all.data?.by_category || []} columns={[{ key: "category", label: "Root cause" }, { key: "cases", label: "Cases", num: true }, { key: "dex_before", label: "DEX before", num: true }, { key: "dex_after", label: "DEX after", num: true }, { key: "recovery_pct", label: "Recovery %", num: true }]}>
                 {all.data && <PrePostBars data={all.data.by_category.map((c: Any) => ({ name: c.category, pre: c.dex_before, post: c.dex_after }))} />}
               </ChartCard></div>
-            <div className="note mt">Dollar value of these outcomes (causal share only) is on <Link to="/roi">Value &amp; Priorities</Link>.</div>
+            <div className="note mt">Dollar value of these outcomes (causal share only) is on <Link to="/value?tab=benefits">Annual Benefits</Link>.</div>
 
             <Card className="mt" title="By root cause" sub="aggregate across cases — the statistically meaningful read">
               <DataTable rows={d.by_category} pageSize={5} sortable columns={[
@@ -127,6 +129,7 @@ export default function Outcomes() {
               ]} />
             </Card>
 
+            <AnalystOnly>
             <Card className="mt" title="Remediation case register" sub={`${d.cases} cases · n = post-fix tickets behind each post-fix average`}>
               <DataTable rows={d.rows} pageSize={5} sortable columns={[
                 { key: "device_id", label: "Device", filter: "text", value: (r: Any) => `${r.device_id} ${r.employee_name}`,
@@ -144,6 +147,7 @@ export default function Outcomes() {
               ]} />
               <div className="note mt">{d.notes.map((n: string, i: number) => <p key={i} style={{ margin: "0 0 4px" }}>{n}</p>)}</div>
             </Card>
+            </AnalystOnly>
           </>
         )}
       </QueryState>

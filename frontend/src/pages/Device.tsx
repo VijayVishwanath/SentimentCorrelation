@@ -82,7 +82,7 @@ export default function Device() {
           <>
             <div className="page-head">
               <div>
-                <Link to="/telemetry" className="note"><ArrowLeft size={12} style={{ verticalAlign: -2 }} /> Fleet</Link>
+                <Link to="/evidence?tab=telemetry" className="note"><ArrowLeft size={12} style={{ verticalAlign: -2 }} /> Fleet</Link>
                 <div className="eyebrow mt">Device 360</div>
                 <h2>{d.device.device_id} · {d.device.employee_name}</h2>
                 <p>{d.device.department} · {d.device.work_mode} · {d.device.device_model} · {d.device.age_months} months old</p>

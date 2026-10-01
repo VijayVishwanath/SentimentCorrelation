@@ -31,7 +31,6 @@ class Settings(BaseSettings):
     # DEX Copilot LLM provider: auto | anthropic | azure_openai | template
     llm_provider: str = "auto"
     anthropic_api_key: str | None = Field(default=None, validation_alias="ANTHROPIC_API_KEY")
-    anthropic_model: str = "claude-opus-5-5"
     anthropic_effort: str = "medium"  # low | medium | high | xhigh | max
     azure_openai_endpoint: str | None = Field(default=None, validation_alias="AZURE_OPENAI_ENDPOINT")
     azure_openai_api_key: str | None = Field(default=None, validation_alias="AZURE_OPENAI_API_KEY")

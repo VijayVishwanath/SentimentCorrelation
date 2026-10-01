@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { AnalystOnly, useAnalyst } from "../components/analyst";
 import { Any, bandColor, fmt, useApi, useFilters } from "../api";
 import { Bars, TrendChart } from "../components/charts";
 import { Card, ChartCard, QueryState } from "../components/ui";
@@ -34,14 +35,14 @@ export default function DexScore() {
   const { qs } = useFilters();
   const q = useApi(`/v1/dex-score${qs}`);
   const [by, setBy] = useState<"by_department" | "by_device_model" | "by_work_mode">("by_department");
+  const { on } = useAnalyst();
   return (
     <>
       <div className="page-head">
         <div>
           <div className="eyebrow">DEX Score framework</div>
           <h2>One outcome number, fully decomposable</h2>
-          <p>The DEX Score blends what employees feel, what devices do, and whether fixes stick — every component is computed
-            from the data and explained below.</p>
+          <p>One number for what employees feel, what devices do, and whether fixes stick.</p>
         </div>
       </div>
       <QueryState q={q}>
@@ -50,37 +51,37 @@ export default function DexScore() {
           return (
             <>
               <div className="grid g-split">
-                <Card title="Formula" sub={d.formula.expression}>
+                <Card title="How the score is made" sub={on ? d.formula.expression : "five components, weighted"}>
                   <div className="hero" style={{ marginBottom: 14 }}>
                     <div className="hero-num">{fmt.n(s.dex_score)}</div>
                     <span className="band" style={{ color: bandColor(s.band) }}>{s.band}</span>
                     <span className="note">Excellent ≥ 85 · Good ≥ 70 · Fair ≥ 55 · Poor &lt; 55</span>
                   </div>
                   <table className="t">
-                    <thead><tr><th>Component</th><th className="num">Score</th><th className="num">Weight</th><th className="num">Points</th><th>Definition</th></tr></thead>
+                    <thead><tr><th>Component</th><th className="num">Score</th><th className="num">Weight</th><th className="num">Points</th>{on && <th>Definition</th>}</tr></thead>
                     <tbody>
                       {KEYS.map((k) => (
                         <tr key={k}>
-                          <td><b>{d.formula.labels[k]}</b> <span className="faint mono">{k.toUpperCase()}</span></td>
+                          <td><b>{d.formula.labels[k]}</b>{on && <span className="faint mono"> {k.toUpperCase()}</span>}</td>
                           <td className="num">{fmt.n(s.components[k])}</td>
                           <td className="num">{d.formula.weights[k]}</td>
                           <td className="num">{fmt.n(s.contributions[k])}</td>
-                          <td className="dim" style={{ fontSize: 12 }}>{d.formula.definitions[k]}</td>
+                          {on && <td className="dim" style={{ fontSize: 12 }}>{d.formula.definitions[k]}</td>}
                         </tr>
                       ))}
                     </tbody>
                   </table>
-                  <div className="note mt">Supporting: {s.supporting.devices} devices · {s.supporting.tickets} tickets · repeat-contact rate {fmt.pct(s.supporting.repeat_contact_rate_pct)} ·
-                    {" "}burden slope {fmt.signed(s.supporting.burden_slope_per_week, 2)} pts/week</div>
+                  <AnalystOnly><div className="note mt">Supporting: {s.supporting.devices} devices · {s.supporting.tickets} tickets · repeat-contact rate {fmt.pct(s.supporting.repeat_contact_rate_pct)} ·
+                    {" "}burden slope {fmt.signed(s.supporting.burden_slope_per_week, 2)} pts/week</div></AnalystOnly>
                 </Card>
                 <WhatIf base={s.components} weights={d.formula.weights} labels={d.formula.labels} />
               </div>
 
-              <div className="grid g-3 mt">
+              <div className={`grid ${on ? "g-3" : ""} mt`}>
                 <ChartCard title="DEX Score" sub="rolling 4-week" table={d.weekly} columns={[{ key: "week", label: "Week" }, ...KEYS.map((k) => ({ key: k, label: k.toUpperCase(), num: true })), { key: "dex_score", label: "DEX", num: true }]}>
                   <TrendChart data={d.weekly} series={[{ key: "dex_score", name: "DEX Score", color: "var(--chart-machine)" }]} height={170} />
                 </ChartCard>
-                {KEYS.map((k) => (
+                {on && KEYS.map((k) => (
                   <ChartCard key={k} title={d.formula.labels[k]} sub={`${k.toUpperCase()} · rolling 4-week`}>
                     <TrendChart data={d.weekly} series={[{ key: k, name: d.formula.labels[k], color: k === "eei" || k === "sts" ? "var(--chart-human)" : "var(--chart-machine)" }]} height={170} />
                   </ChartCard>

@@ -133,9 +133,23 @@ def _text(cat: str, intensity: int, repeat: bool, rng: np.random.Generator) -> s
     return text
 
 
+def device_temperature(tel: pd.DataFrame, heat, rng: np.random.Generator) -> np.ndarray:
+    """Device temperature (deg C) from the device's other readings: worn hardware and battery, hangs and slow
+    boots run warmer, and `heat` (0-1, a thermal episode) adds up to +22. Healthy devices sit around 55-60;
+    the warn threshold is 80 and critical 90."""
+    hw = pd.to_numeric(tel["hardware_health_score"], errors="coerce").fillna(85).to_numpy(float)
+    bat = pd.to_numeric(tel["battery_health_pct"], errors="coerce").fillna(85).to_numpy(float)
+    hangs = pd.to_numeric(tel["app_hang_count"], errors="coerce").fillna(0).to_numpy(float)
+    boot = pd.to_numeric(tel["boot_duration_sec"], errors="coerce").fillna(30).to_numpy(float)
+    t = (49 + 0.35 * (100 - hw) + 0.12 * (100 - bat) + 1.4 * np.minimum(hangs, 10) + 0.04 * np.clip(boot - 30, 0, None)
+         + 22 * np.asarray(heat, float) + rng.normal(0, 2.5, len(tel)))
+    return t.clip(30, 105).round(1)
+
+
 def simulate(cfg: SimConfig | None = None) -> dict[str, pd.DataFrame]:
     cfg = cfg or SimConfig()
     rng = np.random.default_rng(cfg.seed)
+    temp_rng = np.random.default_rng(cfg.seed + 1_000)  # own stream: adding temperature leaves every other column unchanged
     dev = _devices(cfg, rng)
     n, W = len(dev), cfg.weeks
     age = dev["age_months"].to_numpy(float)
@@ -184,13 +198,16 @@ def simulate(cfg: SimConfig | None = None) -> dict[str, pd.DataFrame]:
         nc_p = np.where(is_cat["Login/Auth"], np.clip(0.1 + 0.8 * dj, 0, 0.97), 0.015)
         compliant = rng.random(n) >= nc_p
         week_start = (START + pd.Timedelta(weeks=j)).date()
-        tel_rows.append(pd.DataFrame({
+        week_tel = pd.DataFrame({
             "device_id": dev["device_id"], "week": w, "week_start": week_start,
             "boot_duration_sec": boot.clip(12).round(1), "app_hang_count": hangs.astype(float),
             "network_latency_ms": lat.clip(5).round(1), "packet_loss_pct": loss.clip(0).round(2),
             "policy_compliant": compliant, "hardware_health_score": hw.clip(0, 100).round(1),
             "battery_health_pct": bat.clip(0, 100).round(1), "disk_health_pct": disk.clip(0, 100).round(1),
-        }))
+        })
+        heat = np.where(is_cat["Hardware"], dj, 0) + np.where(is_cat["Application Crash"], 0.4 * dj, 0)
+        week_tel["device_temperature_c"] = device_temperature(week_tel, heat, temp_rng)
+        tel_rows.append(week_tel)
 
         # complaints lag the drift: people notice after living with it for a while
         felt = 0.35 * dj + 0.65 * (d[:, j - 1] if j else 0)

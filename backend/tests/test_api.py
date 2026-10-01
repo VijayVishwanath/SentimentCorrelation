@@ -43,7 +43,11 @@ def test_diagnosis_endpoint(client):
     assert r.status_code == 200
     assert len(body["root_causes"]) == 5
     assert "ml_second_opinion" in body
+    assert body["priority"]["level"] in ("P1", "P2", "P3", "P4") and body["user_suggestions"] == []
     assert client.get("/api/v1/diagnosis/recent").json()["items"]
+    hot = client.post("/api/v1/diagnosis", json={"ticket_text": "My laptop is overheating and keeps freezing",
+                                                 "device_id": "DEV-0001"}).json()
+    assert hot["priority"]["boost"] >= 10 and "Task Manager" in hot["user_suggestions"][0]
 
 
 def test_copilot_template_schema(client):
@@ -84,8 +88,8 @@ class _FakeMessages:
 
     def create(self, **kw):
         self.calls += 1
-        assert kw["model"] == "claude-opus-5-5"
-        assert kw["fallbacks"] == "default" and kw["betas"] == ["server-side-fallback-2026-07-01"]
+        assert kw["model"] == "claude-sonnet-5-5"
+        assert "fallbacks" not in kw and "betas" not in kw  # never re-run on another model
         assert kw["output_config"]["format"]["type"] == "json_schema"
         if self.calls == 1:
             return SimpleNamespace(stop_reason="tool_use", content=[
@@ -102,8 +106,8 @@ class _FakeMessages:
 
 def test_anthropic_provider_tool_loop(store):
     from app.copilot.provider_anthropic import AnthropicCopilot
-    fake = SimpleNamespace(beta=SimpleNamespace(messages=_FakeMessages()))
-    cop = AnthropicCopilot(api_key="k", model="claude-opus-5-5", timeout=5, client=fake)
+    fake = SimpleNamespace(messages=_FakeMessages())
+    cop = AnthropicCopilot(api_key="k", timeout=5, client=fake)
     data, trace = cop.run("Why does Outlook crash?")
     assert data["confidence"] == 90
     assert trace[0]["tool"] == "diagnose_ticket" and not trace[0]["is_error"]
@@ -114,7 +118,7 @@ def test_anthropic_refusal_falls_back(store, monkeypatch):
     from app.copilot.provider_anthropic import AnthropicCopilot, CopilotProviderError
 
     class Refuser:
-        model = "claude-opus-5-5"
+        model = "claude-sonnet-5-5"
 
         def run(self, *a, **k):
             raise CopilotProviderError("The model declined this request")

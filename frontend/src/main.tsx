@@ -3,6 +3,7 @@ import React, { lazy, Suspense } from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import Layout from "./components/Layout";
+import TabbedPage, { TabRedirect } from "./components/TabbedPage";
 import { Loading } from "./components/ui";
 import "./styles.css";
 
@@ -21,7 +22,8 @@ const Device = lazy(() => import("./pages/Device"));
 const SettingsPage = lazy(() => import("./pages/Settings"));
 const UploadPage = lazy(() => import("./pages/Upload"));
 const Remediation = lazy(() => import("./pages/Remediation"));
-const Roi = lazy(() => import("./pages/Roi"));
+const Benefits = lazy(() => import("./pages/Roi"));
+const CriticalFew = lazy(() => import("./pages/CriticalFew"));
 
 const qc = new QueryClient({ defaultOptions: { queries: { refetchOnWindowFocus: false } } });
 
@@ -33,19 +35,34 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
           <Suspense fallback={<Loading />}>
             <Routes>
               <Route path="/" element={<CommandCenter />} />
-              <Route path="/experience" element={<Experience />} />
-              <Route path="/telemetry" element={<Telemetry />} />
-              <Route path="/correlation" element={<Correlation />} />
-              <Route path="/diagnosis" element={<Diagnosis />} />
-              <Route path="/copilot" element={<Copilot />} />
-              <Route path="/outcomes" element={<Outcomes />} />
-              <Route path="/dex-score" element={<DexScore />} />
               <Route path="/proactive" element={<Proactive />} />
-              <Route path="/devices/:id" element={<Device />} />
-              <Route path="/settings" element={<SettingsPage />} />
-              <Route path="/upload" element={<UploadPage />} />
+              <Route path="/diagnosis" element={<TabbedPage label="Diagnose" tabs={[
+                { key: "diagnosis", label: "Diagnosis Assist", element: <Diagnosis /> },
+                { key: "copilot", label: "DEX Copilot", element: <Copilot /> }]} />} />
               <Route path="/remediation" element={<Remediation />} />
-              <Route path="/roi" element={<Roi />} />
+              <Route path="/value" element={<TabbedPage label="Proof and value" tabs={[
+                { key: "outcomes", label: "Outcomes", element: <Outcomes /> },
+                { key: "benefits", label: "Annual Benefits", element: <Benefits /> },
+                { key: "critical-few", label: "Critical Few · 80/20", element: <CriticalFew /> }]} />} />
+              <Route path="/evidence" element={<TabbedPage label="Evidence" tabs={[
+                { key: "dex-score", label: "DEX Score", element: <DexScore /> },
+                { key: "experience", label: "Experience", element: <Experience /> },
+                { key: "telemetry", label: "Telemetry", element: <Telemetry /> },
+                { key: "correlation", label: "Correlation", element: <Correlation /> }]} />} />
+              <Route path="/data" element={<TabbedPage label="Data and settings" tabs={[
+                { key: "sources", label: "Data Sources", element: <UploadPage /> },
+                { key: "settings", label: "Settings", element: <SettingsPage /> }]} />} />
+              <Route path="/devices/:id" element={<Device />} />
+              {/* old page URLs: keep every link and deep link working */}
+              <Route path="/copilot" element={<TabRedirect to="/diagnosis" tab="copilot" />} />
+              <Route path="/outcomes" element={<TabRedirect to="/value" tab="outcomes" />} />
+              <Route path="/roi" element={<TabRedirect to="/value" tab="benefits" />} />
+              <Route path="/dex-score" element={<TabRedirect to="/evidence" tab="dex-score" />} />
+              <Route path="/experience" element={<TabRedirect to="/evidence" tab="experience" />} />
+              <Route path="/telemetry" element={<TabRedirect to="/evidence" tab="telemetry" />} />
+              <Route path="/correlation" element={<TabRedirect to="/evidence" tab="correlation" />} />
+              <Route path="/upload" element={<TabRedirect to="/data" tab="sources" />} />
+              <Route path="/settings" element={<TabRedirect to="/data" tab="settings" />} />
               <Route path="*" element={<div className="empty">Page not found</div>} />
             </Routes>
           </Suspense>

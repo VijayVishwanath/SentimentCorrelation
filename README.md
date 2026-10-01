@@ -8,20 +8,23 @@
 
 ## What's in the box
 
+The app has seven screens: Command Center, Proactive Watchlist, Diagnose (Diagnosis Assist and DEX Copilot), Software Remediation, Proof & Value (Outcomes, Annual Benefits, Critical Few), Evidence (DEX Score, Experience, Telemetry, Correlation) and Data & Settings. The top-bar **Analyst details** switch shows method notes, model diagnostics and the detailed charts; it is off by default.
+
+
 | Module | What it does | Where |
 |---|---|---|
 | **Command Center** | Landing page: the value in one sentence, DEX Score, next week's predicted frustrated tickets, realised annual benefits, the #1 problem, a 3-fix plan (DEX from → to) with **Fix now** buttons, the watchlist and insights | `/` |
 | **Proactive Watchlist** | LightGBM forecast of next week's frustrated tickets per device, explained and priced, with an out-of-time backtest against the rule baseline | `/proactive` |
 | **Value & Priorities** | *Annual Benefits*: ticket cost + productivity + license + hardware savings, each with its formula, source and what-if inputs (tickets counted causally). *Critical Few · 80/20*: every ticket traced to an issue type, a Priority Score (productivity + cost + employee + risk impact) and the fix and ROI per issue | `/roi` |
 | **Software Remediation + Fix now** | Runbooks and email-driven, version-specific software removal: dry run, named human approver, single-use token bound to the reviewed plan, per-device rollback, hash-chained audit. Also an MCP server for AI agents ([docs/REMEDIATION_MCP.md](docs/REMEDIATION_MCP.md)). Execution is simulated | `/remediation` |
-| **M1 Experience Analytics** | Sentiment, frustration score (0–100), emotion classification, experience severity, repeat-contact ladder, top frustration language, ticket explorer | `/experience` |
-| **M2 Telemetry Intelligence** | Device Health Score, Telemetry Severity Score, threshold breaches, fleet health bands, device fleet table | `/telemetry` |
-| **M3 Correlation Engine** | Severity lift, compliance incidence lift, Pearson/Spearman correlation matrix, risk heatmap, frustration heatmap, impact ranking, scatter with fit | `/correlation` |
-| **M4 Diagnosis Assist + Root Cause Engine** | 65/35 telemetry/text fusion, then ranked causes, confidence, sub-cause, telemetry evidence, fix and expected outcome, with an ML second opinion | `/diagnosis` |
-| **M5 DEX Copilot** | Tool-using agent grounded in the engines, with RAG over 22 remediation runbooks. Runs on Claude or Azure OpenAI, or the grounded template engine offline | `/copilot` |
-| **M6 Outcome Reporting** | Before vs after remediation, Experience Recovery %, **causal uplift** (difference-in-differences vs matched never-fixed devices, 95% interval), per-category and per-case register, business impact, CSV export | `/outcomes` |
-| **M7 DEX Score** | Formula, component definitions, trends, cohort breakdown, what-if simulator | `/dex-score` |
-| **M8 Data Sources** | One-click or scheduled ServiceNow incident sync, or upload new real-time data (.xlsx or .csv, up to 200 MB per file, replace or append), then **Submit for Analysis** re-runs the whole pipeline and refreshes every screen, with a before/after comparison | `/upload` |
+| **M1 Experience Analytics** | Frustration score (0–100), emotion and severity, plus three dimensions beyond frustration: **business impact**, **urgency** and **trust in IT** (explainable rule scores with the cues behind them), repeat-contact ladder, ticket explorer | `/evidence?tab=experience` |
+| **M2 Telemetry Intelligence** | Device Health Score, Telemetry Severity Score, threshold breaches, fleet health bands, device fleet table | `/evidence?tab=telemetry` |
+| **M3 Correlation Engine** | Severity lift, compliance incidence lift, Pearson/Spearman correlation matrix, risk heatmap, frustration heatmap, impact ranking, scatter with fit | `/evidence?tab=correlation` |
+| **M4 Diagnosis Assist + Root Cause Engine** | 65/35 telemetry/text fusion, then ranked causes, confidence, sub-cause, telemetry evidence, fix and expected outcome, with an ML second opinion. Incident priority (P1–P4): hang or heat language ("hangs", "overheating", "high temperature"…) triggers a device temperature and battery check, adds weight when they are bad, and suggests the employee check for heavy applications | `/diagnosis` |
+| **M5 DEX Copilot** | Tool-using agent grounded in the engines, with RAG over 22 remediation runbooks. Runs on Claude or Azure OpenAI, or the grounded template engine offline | `/diagnosis?tab=copilot` |
+| **M6 Outcome Reporting** | Before vs after remediation, Experience Recovery %, **causal uplift** (difference-in-differences vs matched never-fixed devices, 95% interval), per-category and per-case register, business impact, CSV export | `/value` |
+| **M7 DEX Score** | Formula, component definitions, trends, cohort breakdown, what-if simulator | `/evidence` |
+| **M8 Data Sources** | One-click or scheduled ServiceNow incident sync, or upload new real-time data (.xlsx or .csv, up to 200 MB per file, replace or append), then **Submit for Analysis** re-runs the whole pipeline and refreshes every screen, with a before/after comparison | `/data` |
 | Device 360 | Per-device telemetry history with the remediation week marked, tickets and before/after | `/devices/:id` |
 | Data & Settings | Business-impact assumptions, model evaluation, API key | `/settings` |
 
@@ -49,7 +52,7 @@ Prerequisites: Python 3.11+ and Node 18+. On first start the bundled workbook `d
 
 Copy `.env.example` to `.env` and set **one** of the following:
 
-- `ANTHROPIC_API_KEY`: Claude. This is the default provider; the model is `claude-opus-5-5`, overridable via `DEX_ANTHROPIC_MODEL`. Server-side refusal fallbacks are enabled.
+- `ANTHROPIC_API_KEY`: Claude. This is the default provider. The Copilot uses Claude Sonnet 5.5 (`claude-sonnet-5-5`) only; a declined request is never re-run on another model, it is answered by the grounded template engine and labelled as such.
 - `AZURE_OPENAI_ENDPOINT` + `AZURE_OPENAI_API_KEY` + `AZURE_OPENAI_DEPLOYMENT`: Azure OpenAI.
 
 With no key, the Copilot uses the **grounded template engine**. It calls the same tools and returns the same schema, so the demo works fully offline. If an LLM call fails or is refused, the app falls back to the template engine automatically and says so in the UI.

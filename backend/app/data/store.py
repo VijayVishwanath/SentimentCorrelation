@@ -15,6 +15,7 @@ import pandas as pd
 
 from .. import db
 from ..config import get_settings
+from ..engines import dimensions as dims
 from ..engines import experience as exp
 from ..engines import telemetry as tel
 from ..engines.thresholds import CATEGORIES, THRESHOLDS
@@ -73,6 +74,14 @@ class DataStore:
         t["sentiment_tier"] = [r.sentiment_tier for r in results]
         t["severity"] = [r.severity for r in results]
         t["emotion"] = [r.emotion for r in results]
+        # beyond frustration: business impact, urgency and trust in IT (engines/dimensions.py)
+        dcache: dict[tuple, dict] = {}
+        drows = []
+        for key in zip(t["ticket_text"], t["prior_contacts"].astype(int), t["escalated"], t["reopened"]):
+            if key not in dcache:
+                dcache[key] = dims.flat(dims.score_dimensions(key[0], int(key[1]), bool(key[2]), bool(key[3])))
+            drows.append(dcache[key])
+        t = pd.concat([t, pd.DataFrame(drows, index=t.index)], axis=1)
 
         telem = self.telemetry.sort_values(["device_id", "week"]).reset_index(drop=True)
         telem["non_compliant"] = telem["policy_compliant"].astype(object).map({False: 1}).fillna(0).astype(int)
@@ -111,6 +120,8 @@ class DataStore:
             "avg_frustration": g["frustration_score"].mean(),
             "max_frustration": g["frustration_score"].max(),
             "avg_text_score": g["text_score"].mean(),
+            "max_impact": g["impact_score"].max(), "max_urgency": g["urgency_score"].max(),
+            "max_trust": g["trust_score"].max(),
             "resolution_hours": g["resolution_time_hours"].sum(),
         }).reset_index()
         dw = telem.merge(agg, on=["device_id", "week"], how="left")

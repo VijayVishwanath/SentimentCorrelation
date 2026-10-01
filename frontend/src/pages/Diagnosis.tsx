@@ -1,12 +1,42 @@
-import { Bot, CheckCircle2, CircleAlert, Stethoscope } from "lucide-react";
+import { Bot, CheckCircle2, CircleAlert, Lightbulb, Stethoscope, Thermometer } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Any, useMeta, fmt, qsOf, sevColor, useApi, usePost } from "../api";
+import { AnalystOnly, useAnalyst } from "../components/analyst";
+import { DimensionChips } from "../components/Dimensions";
 import { ExplainButton } from "../components/Explain";
 import { FixNowButton } from "../components/FixNow";
 import { Card, DataTable, ErrorBox, Meter, SevBadge, StateText } from "../components/ui";
 
 interface Body { ticket_text: string; device_id: string; week?: number; repeat_contacts: number; escalations: number; include_ml: boolean }
+
+const PRIORITY_COLOR: Record<string, string> = { P1: "var(--critical)", P2: "var(--serious)", P3: "var(--human)", P4: "var(--machine)" };
+
+/** Incident priority: frustration score plus weight for hang / heat language backed by temperature and battery readings. */
+function Priority({ p }: { p: Any }) {
+  const c = PRIORITY_COLOR[p.level] || "var(--text-dim)";
+  const tc = p.thermal_check;
+  return (
+    <div className="card-flat mt" style={{ borderColor: c }}>
+      <div className="row between">
+        <span className="field" style={{ margin: 0 }}>Incident priority</span>
+        <span className="row" style={{ gap: 6 }}>
+          <span className="badge" style={{ color: c, borderColor: c, fontWeight: 800 }}>{p.level}</span>
+          <span className="mono" style={{ fontSize: 12 }}>{fmt.n(p.score, 0)}/100{p.boost ? <span className="faint"> · +{p.boost} weight</span> : null}</span>
+        </span>
+      </div>
+      {tc && (
+        <div className="row mt" style={{ gap: 8, flexWrap: "wrap" }}>
+          <Thermometer size={14} className="human" />
+          {tc.readings.map((r: Any) => (
+            <span key={r.signal} className="chip">{r.label}: <b className={`state-${r.state}`}>{r.value === null ? "not measured" : `${fmt.n(r.value, r.unit === "%" ? 0 : 1)}${r.unit}`}</b></span>
+          ))}
+        </div>
+      )}
+      <ul className="note" style={{ margin: "8px 0 0 16px", padding: 0 }}>{p.reasons.map((x: string) => <li key={x}>{x}</li>)}</ul>
+    </div>
+  );
+}
 
 export function Vitals({ vitals }: { vitals: Any[] }) {
   return (
@@ -22,6 +52,7 @@ export function Vitals({ vitals }: { vitals: Any[] }) {
 }
 
 export default function Diagnosis() {
+  const { on } = useAnalyst();
   const [params] = useSearchParams();
   const nav = useNavigate();
   const meta = useMeta();
@@ -65,8 +96,7 @@ export default function Diagnosis() {
         <div>
           <div className="eyebrow">Diagnosis Assist + Root Cause Engine</div>
           <h2>Root cause in seconds, from a ticket and a device</h2>
-          <p>Fuses telemetry severity (65%) with the ticket's language (35%) into ranked root causes, refines to a sub-cause,
-            shows the telemetry evidence and recommends a fix — with an ML second opinion.</p>
+          <p>Pick a ticket: get the root cause, the evidence, the priority and the fix.</p>
         </div>
       </div>
       <div className="grid g-split">
@@ -115,7 +145,7 @@ export default function Diagnosis() {
           )}
         </Card>
 
-        <Card title="Engine output" sub={r ? r.method.fusion : "ranked root causes, confidence, evidence and fix"}>
+        <Card title="Engine output" sub={<AnalystOnly fallback="root cause, priority and fix">{r ? r.method.fusion : "ranked root causes, confidence, evidence and fix"}</AnalystOnly>}>
           {m.error && <ErrorBox error={m.error} />}
           {!r && !m.error && <div className="empty">Run a diagnosis to see ranked root causes, frustration score and a suggested remediation.</div>}
           {r && (
@@ -127,6 +157,8 @@ export default function Diagnosis() {
               </div>
               <Meter value={r.experience.frustration_score} color={sevColor(r.experience.severity)}
                      label={<b className="mono" style={{ color: sevColor(r.experience.severity) }}>{r.experience.frustration_score}/100</b>} />
+              {r.dimensions && <div className="mt"><DimensionChips d={r.dimensions} /></div>}
+              {r.priority && <Priority p={r.priority} />}
 
               <div className="field mt-lg" style={{ marginBottom: 10 }}>Likely causes · likelihood / confidence</div>
               {r.root_causes.map((c: Any, i: number) => (
@@ -143,7 +175,7 @@ export default function Diagnosis() {
               ) : (
                 <>
                   <div className="field mt-lg" style={{ marginBottom: 10 }}>Sub-cause within {r.primary.category}</div>
-                  {r.root_causes[0].subcauses.slice(0, 3).map((s: Any, i: number) => (
+                  {r.root_causes[0].subcauses.slice(0, on ? 3 : 1).map((s: Any, i: number) => (
                     <div key={s.name} className="rank-row" style={{ gridTemplateColumns: "18px 1fr 90px 40px" }}>
                       <span className="rn">{i + 1}</span><span>{s.name}</span>
                       <div className="bar-track"><div className="bar-fill" style={{ width: `${s.share}%`, background: "var(--chart-human)", opacity: i === 0 ? 1 : 0.45 }} /></div>
@@ -167,7 +199,16 @@ export default function Diagnosis() {
                 </>
               )}
 
-              {r.ml_second_opinion && (
+              {r.user_suggestions?.length > 0 && (
+                <div className="callout mt" style={{ borderColor: "var(--human)" }}>
+                  <div className="rk"><Lightbulb size={12} style={{ verticalAlign: -2 }} /> Suggestions for the employee</div>
+                  <ul style={{ margin: "4px 0 0 16px", padding: 0, fontSize: 13, lineHeight: 1.6 }}>
+                    {r.user_suggestions.map((x: string) => <li key={x}>{x}</li>)}
+                  </ul>
+                </div>
+              )}
+
+              {on && r.ml_second_opinion && (
                 <div className="card-flat mt">
                   <div className="row between">
                     <span className="field" style={{ margin: 0 }}>ML second opinion (TF-IDF + telemetry logistic regression)</span>
@@ -180,7 +221,7 @@ export default function Diagnosis() {
                 </div>
               )}
               <div className="row mt">
-                <button className="btn btn-ghost" onClick={() => nav(`/copilot${qsOf({ device: r.device.device_id, week: r.device.week, text })}`)}><Bot size={14} />Explain with DEX Copilot</button>
+                <button className="btn btn-ghost" onClick={() => nav(`/diagnosis${qsOf({ tab: "copilot", device: r.device.device_id, week: r.device.week, text })}`)}><Bot size={14} />Explain with DEX Copilot</button>
               </div>
             </>
           )}

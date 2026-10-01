@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { AnalystOnly, useAnalyst } from "../components/analyst";
 import { Any, SIGNAL_LABEL, fmt, qsOf, useApi, useFilters } from "../api";
 import { Bars, BucketBars, ScatterFit } from "../components/charts";
 import { Card, ChartCard, CorrMatrix, DataTable, Heatmap, QueryState } from "../components/ui";
@@ -68,6 +69,7 @@ function Scatter() {
 export default function Correlation() {
   const { filters } = useFilters();
   const [score, setScore] = useState("text");
+  const { on } = useAnalyst();
   const q = useApi(`/v1/correlation/analysis${qsOf({ ...filters, score })}`);
   return (
     <>
@@ -75,13 +77,14 @@ export default function Correlation() {
         <div>
           <div className="eyebrow">Correlation Engine</div>
           <h2>What's actually driving frustration</h2>
-          <p>Subjective experience signals correlated with objective telemetry. Continuous signals use severity lift (worst vs best bucket);
-            binary policy compliance uses incidence lift. Computed live from the dataset — not hardcoded.</p>
+          <p>When devices struggle, employees say so: how strongly what people write tracks what the telemetry measures.</p>
         </div>
-        <div className="seg" role="group" aria-label="Score basis">
-          <button className={score === "frustration" ? "on" : ""} onClick={() => setScore("frustration")}>Frustration (text + behaviour)</button>
-          <button className={score === "text" ? "on" : ""} onClick={() => setScore("text")}>Text lexicon only (validated)</button>
-        </div>
+        <AnalystOnly>
+          <div className="seg" role="group" aria-label="Score basis">
+            <button className={score === "frustration" ? "on" : ""} onClick={() => setScore("frustration")}>Frustration (text + behaviour)</button>
+            <button className={score === "text" ? "on" : ""} onClick={() => setScore("text")}>Text lexicon only (validated)</button>
+          </div>
+        </AnalystOnly>
       </div>
       <QueryState q={q}>
         {(d: Any) => (
@@ -91,8 +94,10 @@ export default function Correlation() {
                 <div className="hero">
                   <div><div className="hero-num">{fmt.n(d.headline.score, 2)}</div><span className="band" style={{ color: "var(--human)" }}>{d.headline.strength}</span></div>
                   <dl className="kv">
-                    <dt>Ticket level</dt><dd className="mono">Pearson r = {fmt.n(d.headline.ticket_level.pearson, 3)} · Spearman {fmt.n(d.headline.ticket_level.spearman, 3)} · n = {d.headline.ticket_level.n}</dd>
-                    <dt>Device-week</dt><dd className="mono">Pearson r = {fmt.n(d.headline.device_week_level.pearson, 3)} · n = {d.headline.device_week_level.n}</dd>
+                    <AnalystOnly>
+                      <dt>Ticket level</dt><dd className="mono">Pearson r = {fmt.n(d.headline.ticket_level.pearson, 3)} · Spearman {fmt.n(d.headline.ticket_level.spearman, 3)} · n = {d.headline.ticket_level.n}</dd>
+                      <dt>Device-week</dt><dd className="mono">Pearson r = {fmt.n(d.headline.device_week_level.pearson, 3)} · n = {d.headline.device_week_level.n}</dd>
+                    </AnalystOnly>
                     <dt>Reading</dt><dd className="dim" style={{ fontSize: 12.5 }}>When the device is struggling, employees say so — and more angrily. Correlation supports, it does not prove, a root cause.</dd>
                   </dl>
                 </div>
@@ -108,6 +113,7 @@ export default function Correlation() {
               </Card>
             </div>
 
+            <AnalystOnly>
             <div className="grid g-5 mt">
               {LIFT_ORDER.map((k) => {
                 const l = d.lift[k];
@@ -120,10 +126,11 @@ export default function Correlation() {
                 );
               })}
             </div>
+            </AnalystOnly>
 
             <Card className="mt" title="Frustration by telemetry severity bucket" sub="average frustration per bucket (worst bucket emphasised), ticket count below each bar">
-              <div className="grid g-4">
-                {["boot", "latency", "hangs", "hw_health"].map((k) => (
+              <div className={`grid ${on ? "g-4" : "g-2"}`}>
+                {(on ? ["boot", "latency", "hangs", "hw_health"] : ["boot", "latency"]).map((k) => (
                   <div key={k}>
                     <div className="card-sub" style={{ marginBottom: 4 }}>{SIGNAL_LABEL[k]}{k === "hw_health" ? " (higher = healthier)" : ""}</div>
                     <BucketBars buckets={d.lift[k].buckets} />
@@ -150,12 +157,13 @@ export default function Correlation() {
               </Card>
             </div>
 
-            <Card className="mt" title="Correlation matrix" sub={`experience signals × telemetry signals — Pearson r with significance. ${d.matrix.note}`}>
-              <CorrMatrix matrix={d.matrix} />
-            </Card>
-
-            <div className="mt"><Heatmaps /></div>
-            <div className="mt"><Scatter /></div>
+            <AnalystOnly>
+              <Card className="mt" title="Correlation matrix" sub={`experience signals × telemetry signals — Pearson r with significance. ${d.matrix.note}`}>
+                <CorrMatrix matrix={d.matrix} />
+              </Card>
+              <div className="mt"><Heatmaps /></div>
+              <div className="mt"><Scatter /></div>
+            </AnalystOnly>
           </>
         )}
       </QueryState>

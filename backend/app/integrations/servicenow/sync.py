@@ -163,6 +163,18 @@ def start_sync(trigger: str = "manual") -> dict:
         _lock.release()
 
 
+def recover_interrupted() -> int:
+    """Close runs left 'running' by a restart (their analysis job lived in memory and is gone). The watermark
+    did not advance for them, so the next sync re-pulls the same window."""
+    with db.get_engine().begin() as conn:
+        n = conn.execute(update(runs).where(runs.c.status == "running").values(
+            status="failed", finished_at=db.now(), watermark=None,
+            error="interrupted: the server restarted while this sync was being analysed")).rowcount
+    if n:
+        log.warning("marked %d interrupted ServiceNow sync run(s) as failed", n)
+    return n
+
+
 def _finish(run_id: int, mark: str, job: Job) -> None:
     if job.state == "succeeded":
         _update(run_id, status="succeeded", watermark=mark, finished_at=db.now())

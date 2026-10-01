@@ -77,7 +77,7 @@ Four capabilities in a pipeline, plus a grounded AI assistant:
 | Root cause (second opinion) | Multinomial logistic regression on TF-IDF (1–2-grams) + standardised telemetry | Top positive feature contributions |
 | **Predictive risk** | **LightGBM + isotonic calibration** | Exact per-feature contributions grouped into drivers |
 | RAG | Hand-written Okapi BM25 (k1 = 1.5, b = 0.75) over runbook sections, with category (×1.35) and sub-cause (×1.8) boosts | Cited article IDs |
-| Copilot | Tool-use agent (≤ 8 steps), JSON-schema output, Claude `claude-opus-5-5` or Azure OpenAI; deterministic template fallback | Tool trace plus citations |
+| Copilot | Tool-use agent (≤ 8 steps), JSON-schema output, Claude `claude-sonnet-5-5` or Azure OpenAI; deterministic template fallback | Tool trace plus citations |
 
 ### 3.3 Frontend
 
@@ -547,7 +547,7 @@ The system prompt requires every number to come from a tool result. The model on
 `agent.ask()` catches the provider error and falls back to the deterministic template engine, which calls the same tools and returns the same schema. The UI shows the fallback reason.
 
 **Q23. Which model, and at what cost?**
-Claude `claude-opus-5-5` with medium effort and prompt caching on the system prompt, or an Azure OpenAI deployment. It is optional: without a key the Copilot costs nothing.
+Claude `claude-sonnet-5-5` with medium effort and prompt caching on the system prompt, or an Azure OpenAI deployment. It is optional: without a key the Copilot costs nothing.
 
 **Q24. How does RAG work?**
 BM25 over section-level chunks of 22 Markdown runbooks, boosted when the category (×1.35) or sub-cause (×1.8) matches the diagnosis. The answers cite article IDs.

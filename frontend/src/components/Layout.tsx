@@ -1,33 +1,32 @@
-import { Activity, Bot, Cpu, Database, Gauge, GitCompareArrows, LayoutDashboard, Moon, Radar, Settings, ShieldCheck, Stethoscope, Sun, TrendingUp, UploadCloud, Wallet, X } from "lucide-react";
+import { Activity, Bot, Database, LayoutDashboard, Moon, Radar, ShieldCheck, Stethoscope, Sun, TrendingUp, X } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { KeyRound } from "lucide-react";
 import { ReactNode, useEffect, useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { ApiError, getApiKey, setApiKey, useApi, useFilters, useMeta } from "../api";
+import { AnalystOnly, AnalystProvider, AnalystSwitch } from "./analyst";
 
-const NAV = [  // ordered as the story: see it, predict and diagnose it, fix it and prove it, then the evidence
-  { section: "OVERVIEW" },
+const NAV = [  // ordered as the story: see it, predict it, diagnose it, fix it, prove it, then the evidence behind it
   { to: "/", label: "Command Center", icon: LayoutDashboard, n: "" },
-  { section: "PREDICT & DIAGNOSE" },
   { to: "/proactive", label: "Proactive Watchlist", icon: Radar, n: "ML" },
-  { to: "/diagnosis", label: "Diagnosis Assist", icon: Stethoscope, n: "" },
-  { to: "/copilot", label: "DEX Copilot", icon: Bot, n: "AI" },
-  { section: "FIX & PROVE" },
+  { to: "/diagnosis", label: "Diagnose", icon: Stethoscope, n: "AI" },
   { to: "/remediation", label: "Software Remediation", icon: ShieldCheck, n: "MCP" },
-  { to: "/outcomes", label: "Outcomes", icon: TrendingUp, n: "" },
-  { to: "/roi", label: "Value & Priorities", icon: Wallet, n: "ROI" },
-  { section: "EVIDENCE" },
-  { to: "/dex-score", label: "DEX Score", icon: Gauge, n: "" },
-  { to: "/experience", label: "Experience", icon: Activity, n: "" },
-  { to: "/telemetry", label: "Telemetry", icon: Cpu, n: "" },
-  { to: "/correlation", label: "Correlation", icon: GitCompareArrows, n: "" },
-  { section: "ADMIN" },
-  { to: "/upload", label: "Data Sources", icon: UploadCloud, n: "" },
-  { to: "/settings", label: "Data & Settings", icon: Settings, n: "" },
+  { to: "/value", label: "Proof & Value", icon: TrendingUp, n: "ROI" },
+  { to: "/evidence", label: "Evidence", icon: Activity, n: "" },
+  { to: "/data", label: "Data & Settings", icon: Database, n: "" },
 ] as const;
 
 // Pages whose content honours the global filter row
-const FILTERED = ["/", "/experience", "/telemetry", "/correlation", "/dex-score", "/roi"];
+const FILTERED = ["/", "/evidence", "/value"];
+
+/** Carry the global filters between filtered pages, but not a page's own params such as ?tab=. */
+function filterSearch(search: string): string {
+  const p = new URLSearchParams(search);
+  const keep = new URLSearchParams();
+  ["department", "device_model", "work_mode", "week_from", "week_to"].forEach((k) => { const v = p.get(k); if (v) keep.set(k, v); });
+  const s = keep.toString();
+  return s ? `?${s}` : "";
+}
 
 function useTheme(): [string, () => void] {
   const [theme, setTheme] = useState<string>(() => {
@@ -95,6 +94,10 @@ function AccessKeyPrompt() {
 }
 
 export default function Layout({ children }: { children: ReactNode }) {
+  return <AnalystProvider><Shell>{children}</Shell></AnalystProvider>;
+}
+
+function Shell({ children }: { children: ReactNode }) {
   const [theme, toggle] = useTheme();
   const loc = useLocation();
   const meta = useMeta();
@@ -110,27 +113,30 @@ export default function Layout({ children }: { children: ReactNode }) {
           </div>
           <div><h1>DEX Sentinel</h1><small>sentiment × telemetry</small></div>
         </div>
-        {NAV.map((item, i) =>
-          "section" in item ? <div key={i} className="nav-section">{item.section}</div> : (
-            <NavLink key={item.to} to={{ pathname: item.to, search: FILTERED.includes(item.to) ? loc.search : "" }} end={item.to === "/"}
-                     className={({ isActive }) => `nav-link${isActive ? " active" : ""}`}>
-              <item.icon size={16} />{item.label}{item.n && <span className="n">{item.n}</span>}
-            </NavLink>
-          ))}
-        <div className="sidebar-foot">
-          {counts ? <>{counts.devices.toLocaleString()} devices · {counts.tickets.toLocaleString()} tickets<br />{counts.remediations.toLocaleString()} remediations · {meta.data.dimensions.weeks.length} wks</> : "…"}
-          <br /><Database size={10} style={{ verticalAlign: -1 }} /> {meta.data?.dataset?.source ? String(meta.data.dataset.source).slice(0, 34) : "dataset"}
-        </div>
+        <div style={{ height: 8 }} />
+        {NAV.map((item) => (
+          <NavLink key={item.to} to={{ pathname: item.to, search: FILTERED.includes(item.to) ? filterSearch(loc.search) : "" }} end={item.to === "/"}
+                   className={({ isActive }) => `nav-link${isActive ? " active" : ""}`}>
+            <item.icon size={16} />{item.label}{item.n && <span className="n">{item.n}</span>}
+          </NavLink>
+        ))}
+        <AnalystOnly>
+          <div className="sidebar-foot">
+            {counts ? <>{counts.devices.toLocaleString()} devices · {counts.tickets.toLocaleString()} tickets<br />{counts.remediations.toLocaleString()} remediations · {meta.data.dimensions.weeks.length} wks</> : "…"}
+            <br /><Database size={10} style={{ verticalAlign: -1 }} /> {meta.data?.dataset?.source ? String(meta.data.dataset.source).slice(0, 34) : "dataset"}
+          </div>
+        </AnalystOnly>
       </aside>
       <div className="main">
         <header className="topbar">
-          {showFilters ? <FilterBar /> : <span className="filter-label">{loc.pathname === "/diagnosis" ? "TICKET + DEVICE INTAKE" : ""}</span>}
+          {showFilters ? <FilterBar /> : <span />}
           <div className="spacer" />
           {status.data && (
             <span className="chip" title={status.data.llm_enabled ? `LLM: ${status.data.model}` : "No LLM key configured — grounded template engine"}>
               <Bot size={12} />Copilot: {status.data.llm_enabled ? status.data.provider : "grounded template"}
             </span>
           )}
+          <AnalystSwitch />
           <button className="btn btn-ghost btn-sm" onClick={toggle} aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}>
             {theme === "dark" ? <Sun size={13} /> : <Moon size={13} />}
           </button>

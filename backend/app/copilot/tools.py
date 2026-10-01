@@ -44,7 +44,12 @@ def effective_config() -> dict:
 # ---------------------------------------------------------------- handlers
 def score_ticket_text(text: str, repeat_contacts: int = 0, escalations: int = 0) -> dict:
     r = exp.analyze_text(text, int(repeat_contacts or 0), int(escalations or 0)).as_dict()
-    return {k: r[k] for k in ("frustration_score", "text_score", "sentiment", "severity", "emotion", "matched_phrases")}
+    from ..engines import dimensions as dims
+    d = dims.score_dimensions(text, int(repeat_contacts or 0), int(escalations or 0) > 0)
+    return {**{k: r[k] for k in ("frustration_score", "text_score", "sentiment", "severity", "emotion", "matched_phrases")},
+            "dimensions": {k: {"score": d[k]["score"], "level": d[k]["level"],
+                               "cues": [c["family"] for c in d[k]["cues"]]} for k in dims.DIMENSIONS},
+            "primary_concern": d["primary_concern"]}
 
 
 def get_device_profile(device_id: str) -> dict:
@@ -175,7 +180,8 @@ def predict_next_week_risk(department: str | None = None, limit: int = 5) -> dic
 
 TOOLS: list[Tool] = [
     Tool("score_ticket_text", "Score employee ticket/call/chat text for frustration (0-100), sentiment, emotion and "
-         "severity, including repeat-contact and escalation boosts.",
+         "severity, including repeat-contact and escalation boosts, plus three dimensions beyond frustration: "
+         "business impact, urgency and trust in IT (each 0-100 with the cues behind it).",
          _obj({"text": {"type": "string"}, "repeat_contacts": {"type": "integer", "description": "prior contacts"},
                "escalations": {"type": "integer"}}, ["text"]), score_ticket_text),
     Tool("get_device_profile", "Get a device's owner, 12-week telemetry trend, DEX score, tickets and remediation history.",

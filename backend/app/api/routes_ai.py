@@ -10,6 +10,7 @@ from ..copilot import agent
 from ..copilot.retriever import get_kb
 from ..copilot.tools import effective_config
 from ..data.store import DataStore
+from ..engines import dimensions as dims
 from ..engines import experience as exp
 from ..engines import forecast, ml
 from ..engines.diagnosis import diagnose
@@ -48,12 +49,14 @@ class CopilotIn(BaseModel):
 
 @router.post("/experience/analyze", summary="Module 1 — score free text (sentiment, frustration, emotion, severity)")
 def analyze(body: TextIn):
-    return exp.analyze_text(body.text, body.repeat_contacts, body.escalations).as_dict()
+    return {**exp.analyze_text(body.text, body.repeat_contacts, body.escalations).as_dict(),
+            "dimensions": dims.score_dimensions(body.text, body.repeat_contacts, body.escalations > 0)}
 
 
 @router.post("/experience/explain", summary="Module 1 — step-by-step derivation of the frustration score for free text")
 def explain_text(body: TextIn):
-    return exp.explain(body.text, body.repeat_contacts, body.escalations)
+    return {**exp.explain(body.text, body.repeat_contacts, body.escalations),
+            "dimensions": dims.score_dimensions(body.text, body.repeat_contacts, body.escalations > 0)}
 
 
 @router.post("/diagnosis", summary="Module 4 — Diagnosis Assist: ranked root causes, evidence, fix")
@@ -87,6 +90,7 @@ def model_metrics(store: DataStore = Depends(store_dep)):
             "sentiment_lexicon": {"validated_agreement_pct": 93.3,
                                   "note": "Agreement with the dataset's hidden ground-truth tier, measured during "
                                           "dataset construction (judge briefing). Ground truth is not shipped."},
+            "dimensions": dims.validity(store.tickets_enriched),
             "disclosure": "Categories in the simulated dataset were seeded from telemetry and templated text, so "
                           "near-perfect accuracy here reflects separable synthetic data, not expected real-world accuracy."}
 
@@ -123,8 +127,9 @@ async def copilot_ask(body: CopilotIn):
 def copilot_status():
     name = agent.resolve_provider_name()
     from ..config import get_settings
+    from ..copilot.provider_anthropic import MODEL as ANTHROPIC_MODEL
     s = get_settings()
-    model = {"anthropic": s.anthropic_model, "azure_openai": s.azure_openai_deployment}.get(name, "grounded-template-v1")
+    model = {"anthropic": ANTHROPIC_MODEL, "azure_openai": s.azure_openai_deployment}.get(name, "grounded-template-v1")
     return {"provider": name, "model": model, "llm_enabled": name != "template",
             "kb_articles": len(get_kb().articles)}
 

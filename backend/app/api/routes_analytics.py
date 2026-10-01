@@ -14,6 +14,7 @@ from ..copilot.tools import effective_config, find_at_risk_devices
 from ..data.store import DataStore
 from ..engines import correlation as corr
 from ..engines import dex_score, insights, outcomes
+from ..engines import dimensions as dims
 from ..engines import telemetry as tel
 from ..engines.thresholds import (ACTION_BY_CATEGORY, CATEGORIES, CATEGORY_PRIMARY_SIGNAL, THRESHOLDS,
                                   TELEMETRY_SIGNALS, signal_state)
@@ -122,7 +123,8 @@ def executive_dashboard(f: Filters = Depends(filters), store: DataStore = Depend
 # --------------------------------------------------------------- command center
 # telemetry signal -> root-cause category whose runbook fixes it
 SIGNAL_CATEGORY = {sig: cat for cat, sig in CATEGORY_PRIMARY_SIGNAL.items()} | {"packet_loss": "Network",
-                                                                                  "battery": "Hardware", "disk": "Hardware"}
+                                                                                  "battery": "Hardware", "disk": "Hardware",
+                                                                                  "temp": "Hardware"}
 
 
 def _action_plan(exec_d: dict, oc: dict, cfg: dict, total_devices: int, n_weeks: int, cost: float) -> list[dict]:
@@ -265,6 +267,7 @@ def experience_summary(f: Filters = Depends(filters), store: DataStore = Depends
             "weekly": weekly.to_dict("records"),
             "by_department": _by_group(dw, tk, "department"),
             "drivers": corr.experience_drivers(tk),
+            "dimensions": dims.summarize(tk),
             "repeat_ladder": [{"contact_number": int(k), "tickets": int(v),
                                "avg_frustration": round(float(tk.loc[tk["repeat_number"] == k, "frustration_score"].mean()), 1)}
                               for k, v in tk["repeat_number"].value_counts().sort_index().items()],
@@ -274,7 +277,8 @@ def experience_summary(f: Filters = Depends(filters), store: DataStore = Depends
 
 TICKET_COLUMNS = {"ticket_id": "text", "device_id": "text", "employee_name": "text", "department": "enum",
                   "week": "num", "channel": "enum", "category": "enum", "ticket_text": "text", "emotion": "enum",
-                  "severity": "enum", "frustration_score": "num", "outcome_status": "enum", "repeat_number": "num"}
+                  "severity": "enum", "frustration_score": "num", "outcome_status": "enum", "repeat_number": "num",
+                  "impact_score": "num", "urgency_score": "num", "trust_score": "num", "primary_concern": "enum"}
 
 
 @router.get("/experience/tickets", summary="Search / page tickets with experience scores")
@@ -300,7 +304,9 @@ def experience_tickets(request: Request, f: Filters = Depends(filters), store: D
         tk = tk.sort_values(key[0], ascending=key[1])
     cols = ["ticket_id", "device_id", "employee_name", "department", "week", "date", "channel", "category",
             "repeat_contact", "repeat_number", "ticket_text", "resolution_time_hours", "outcome_status",
-            "text_score", "frustration_score", "sentiment", "severity", "emotion", "telemetry_severity"]
+            "text_score", "frustration_score", "sentiment", "severity", "emotion", "telemetry_severity",
+            "impact_score", "impact_level", "urgency_score", "urgency_level", "trust_score", "trust_level",
+            "primary_concern"]
     return {"total": int(len(tk)), "offset": offset, "limit": limit, "options": options,
             "items": tk[cols].iloc[offset:offset + limit]}
 
@@ -314,6 +320,8 @@ def explain_ticket(ticket_id: str, store: DataStore = Depends(store_dep)):
         raise HTTPException(404, f"unknown ticket_id {ticket_id}")
     r = row.iloc[0]
     out = exp.explain(r["ticket_text"], int(r["prior_contacts"]), int(bool(r["escalated"])))
+    out["dimensions"] = dims.score_dimensions(r["ticket_text"], int(r["prior_contacts"]), bool(r["escalated"]),
+                                              bool(r["reopened"]))
     out["ticket"] = {k: r[k] for k in ("ticket_id", "device_id", "employee_name", "department", "week", "channel",
                                        "category", "outcome_status", "repeat_number", "frustration_score")}
     out["inputs"] = {"prior_contacts": int(r["prior_contacts"]), "escalated": bool(r["escalated"]),
@@ -343,7 +351,7 @@ def telemetry_summary(f: Filters = Depends(filters), store: DataStore = Depends(
             vpn_failures=("vpn_failure", "sum"), crash_events=("crash_events", "sum")).reset_index()
         weekly["compliance_pct"] *= 100
         breaches = []
-        for key in ["boot", "latency", "packet_loss", "hangs", "hw_health", "battery", "disk"]:
+        for key in ["boot", "latency", "packet_loss", "hangs", "hw_health", "battery", "disk", "temp"]:
             col = TELEMETRY_SIGNALS[key][0]
             th = THRESHOLDS[key]
             v = pd.to_numeric(dw[col], errors="coerce")

@@ -45,7 +45,8 @@ DEVICE_LABEL = "Device profile"
 SIGNAL_FIX = {"boot": ("Performance", "KB-PERF-001"), "disk": ("Hardware", "KB-HW-002"),
               "latency": ("Network", "KB-NET-001"), "packet_loss": ("Network", "KB-NET-002"),
               "noncompliant": ("Login/Auth", "KB-AUTH-001"), "hw_health": ("Hardware", "KB-HW-003"),
-              "battery": ("Hardware", "KB-HW-001"), "hangs": ("Application Crash", "KB-APP-001")}
+              "battery": ("Hardware", "KB-HW-001"), "hangs": ("Application Crash", "KB-APP-001"),
+              "temp": ("Hardware", "KB-HW-003")}
 FIX_BY_KB = {s.kb_id: s.fix for subs in SUBCAUSES.values() for s in subs}
 
 

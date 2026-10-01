@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { AnalystOnly } from "../components/analyst";
 import { Bar, CartesianGrid, Cell, ComposedChart, Line, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Any, fmt, qsOf, useApi, useFilters } from "../api";
 import { FixNowButton } from "../components/FixNow";
@@ -96,8 +97,7 @@ export default function CriticalFew() {
         <div>
           <div className="eyebrow">Critical Few vs Trivial Many · 80/20</div>
           <h2>The few issues behind most of the pain</h2>
-          <p>Every ticket is traced to an issue type (root cause → sub-cause). A handful of them drive most of the lost time, frustration,
-            cost and incidents. Fix those first: problem, future risk, solution and ROI for each.</p>
+          <p>A handful of issue types cause most of the lost time, frustration and cost. Fix those first.</p>
         </div>
       </div>
       <QueryState q={q} label="Tracing every ticket to its issue type…">
@@ -138,12 +138,12 @@ export default function CriticalFew() {
                   <div className="card-flat"><div className="eyebrow" style={{ margin: 0 }}>Future risk</div><b style={{ fontSize: 20 }}>{fmt.n(d.critical_few.risk_tickets_next_week)}</b><span className="faint"> frustrated tickets next wk</span></div>
                   <div className="card-flat"><div className="eyebrow" style={{ margin: 0 }}>Trivial many</div><b style={{ fontSize: 20 }}>{d.trivial_many.count}</b><span className="faint"> types · {usd(d.trivial_many.annual_impact_usd)}/yr</span></div>
                 </div>
-                <div className="note mt">Risk source: {d.risk_source}. {d.tickets} tickets over {d.weeks} weeks in scope.</div>
+                <AnalystOnly><div className="note mt">Risk source: {d.risk_source}. {d.tickets} tickets over {d.weeks} weeks in scope.</div></AnalystOnly>
               </Card>
             </div>
 
             <Card className="mt" title="Priority ranking: problem → future risk → solution → ROI"
-                  sub={<span className="mono" style={{ fontSize: 11.5 }}>{d.formula}</span>}
+                  sub={<AnalystOnly fallback="highest priority first"><span className="mono" style={{ fontSize: 11.5 }}>{d.formula}</span></AnalystOnly>}
                   right={<div className="row" style={{ gap: 12, fontSize: 11.5, color: "var(--text-dim)" }}>{PARTS.map((x) => <span key={x.key}><Swatch color={x.color} />{x.label}</span>)}</div>}>
               <div className="table-wrap">
                 <table className="t">
@@ -180,6 +180,7 @@ export default function CriticalFew() {
               )}
             </Card>
 
+            <AnalystOnly>
             <Card className="mt" title="How the Priority Score is built">
               <div className="grid g-2" style={{ gap: 8 }}>
                 {PARTS.map((x) => (
@@ -189,6 +190,7 @@ export default function CriticalFew() {
               </div>
               <div className="note mt">Scaling: {d.definitions.scaling}. Critical few: {d.definitions.critical_few}. ROI: {d.definitions.roi}.</div>
             </Card>
+            </AnalystOnly>
           </>
         )}
       </QueryState>

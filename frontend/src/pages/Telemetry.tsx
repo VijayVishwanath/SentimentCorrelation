@@ -1,4 +1,5 @@
 import { CheckCircle2 } from "lucide-react";
+import { useAnalyst } from "../components/analyst";
 import { useNavigate } from "react-router-dom";
 import { Any, bandColor, fmt, qsOf, useApi, useFilters } from "../api";
 import { TrendChart } from "../components/charts";
@@ -52,14 +53,14 @@ function DeviceTable() {
 export default function Telemetry() {
   const { qs } = useFilters();
   const q = useApi(`/v1/telemetry/summary${qs}`);
+  const { on } = useAnalyst();
   return (
     <>
       <div className="page-head">
         <div>
           <div className="eyebrow">Telemetry Intelligence</div>
           <h2>What the devices are actually doing</h2>
-          <p>Boot duration, application hangs, crash events, network latency and loss, VPN stability, policy compliance and
-            hardware health — scored into a Device Health Score and a Telemetry Severity Score.</p>
+          <p>How healthy the fleet is, and which devices are past their limits.</p>
         </div>
       </div>
       <QueryState q={q}>
@@ -71,15 +72,15 @@ export default function Telemetry() {
               <Kpi label="Healthy devices" value={fmt.pct(d.kpis.healthy_devices_pct)} accent="var(--machine)" deltaLabel={`latest week · ${d.kpis.devices} devices`} />
               <Kpi label="Policy compliance" value={fmt.pct(d.kpis.compliance_pct)} accent="var(--human)" deltaLabel="share of device-weeks compliant" />
             </div>
-            <div className="grid g-4 mt">
+            {on && <div className="grid g-4 mt">
               <Kpi label="Avg boot" value={fmt.n(d.kpis.avg_boot_sec)} unit="s" accent="var(--machine)" />
               <Kpi label="Avg latency" value={fmt.n(d.kpis.avg_latency_ms)} unit="ms" accent="var(--machine)" />
               <Kpi label="VPN failure weeks" value={fmt.i(d.kpis.vpn_failure_weeks)} accent="var(--critical)" hint={d.derived_signal_notes.vpn_failure} deltaLabel="derived: packet loss ≥ 1.5%" />
               <Kpi label="Crash events" value={fmt.i(d.kpis.crash_events)} accent="var(--critical)" hint={d.derived_signal_notes.crash_events} deltaLabel="derived: crash tickets" />
-            </div>
+            </div>}
 
             <div className="grid g-3 mt">
-              {SMALL.map((s) => (
+              {SMALL.slice(0, on ? SMALL.length : 3).map((s) => (
                 <ChartCard key={s.key} title={s.title} sub="fleet weekly mean" table={d.weekly} columns={[{ key: "week", label: "Week" }, { key: s.key, label: s.title, num: true }]}>
                   <TrendChart data={d.weekly} series={[{ key: s.key, name: s.title, color: s.color }]} height={160} />
                 </ChartCard>

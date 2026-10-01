@@ -40,8 +40,8 @@ export default function SettingsPage() {
         <div>
           <div className="eyebrow">Admin</div>
           <h2>Data & Settings</h2>
-          <p>Analysis assumptions, AI model evaluation and API access. Data is managed on <Link to="/upload">Data Sources</Link>;
-            cost assumptions on <Link to="/roi">Value &amp; Priorities</Link>.</p>
+          <p>Analysis assumptions, AI model evaluation and API access. Data is managed on <Link to="/data">Data Sources</Link>;
+            cost assumptions on <Link to="/value?tab=benefits">Annual Benefits</Link>.</p>
         </div>
       </div>
       {msg && <div className="card-flat" role="status" style={{ marginBottom: 14, borderColor: "var(--machine-dim)" }}>{msg}</div>}
@@ -76,6 +76,26 @@ export default function SettingsPage() {
                   scores are near-perfect by construction. Telemetry-only accuracy and the out-of-time forecast are the fair read;
                   real ticket text will score lower.</div>
                 <div className="note mt">The next-week frustration forecast is evaluated against the rule baseline on <Link to="/proactive">Proactive Watchlist</Link>.</div>
+                {m.dimensions?.impact && (
+                  <>
+                    <table className="t mt">
+                      <thead><tr><th>Dimension (text cues only)</th><th>Checked against</th><th className="num">Low</th><th className="num">Medium</th><th className="num">High</th><th>Moves with it?</th></tr></thead>
+                      <tbody>
+                        {(["impact", "urgency", "trust"] as const).map((k) => {
+                          const v = m.dimensions[k];
+                          return (
+                            <tr key={k}>
+                              <td><b>{v.label}</b></td><td className="dim">{v.metric}</td>
+                              {v.by_level.map((r: Any) => <td key={r.level} className="num" title={`${r.tickets} tickets`}>{r.value === null ? "—" : fmt.n(r.value, 1)}</td>)}
+                              <td>{v.moves_with_outcome === null ? "—" : v.moves_with_outcome ? <span className="state-ok">yes</span> : <span className="state-warn">not in this data</span>}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                    <div className="note mt">{m.dimensions.note}</div>
+                  </>
+                )}
               </>
             )}
           </QueryState>

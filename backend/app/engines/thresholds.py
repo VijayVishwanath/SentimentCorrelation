@@ -13,6 +13,7 @@ THRESHOLDS: dict[str, dict[str, float]] = {
     "hangs": {"warn": 3, "critical": 6},
     "battery": {"warn": 60, "critical": 45},  # lower is worse
     "disk": {"warn": 70, "critical": 55},  # lower is worse
+    "temp": {"warn": 80, "critical": 90},  # device temperature, °C
 }
 
 CATEGORIES: list[str] = ["Performance", "Network", "Login/Auth", "Hardware", "Application Crash"]
@@ -35,6 +36,7 @@ TELEMETRY_SIGNALS: dict[str, tuple[str, str, str, bool]] = {
     "hw_health": ("hardware_health_score", "Hardware health", "", False),
     "battery": ("battery_health_pct", "Battery health", "%", False),
     "disk": ("disk_health_pct", "Disk health", "%", False),
+    "temp": ("device_temperature_c", "Device temperature", "°C", True),
 }
 
 ISSUE_LABEL: dict[str, str] = {

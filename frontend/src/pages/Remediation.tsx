@@ -1,4 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
+import { AnalystOnly } from "../components/analyst";
 import { Inbox, Play, RefreshCw, ScrollText, ShieldAlert, ShieldCheck, ShieldX, Wrench } from "lucide-react";
 import { ReactNode, useEffect, useState } from "react";
 import { Any, api, fmt, qsOf, useApi } from "../api";
@@ -90,9 +91,7 @@ export default function Remediation() {
         <div>
           <div className="eyebrow">Security automation · MCP</div>
           <h2>Software Remediation</h2>
-          <p>Security-team emails ask for a specific software version to be removed. DEX Sentinel parses each request, finds exactly
-            that version across the fleet, checks it is safe, and removes it only after a named person approves — one device at a
-            time, rolled back if any step fails. The same workflow is available to Claude through the <span className="mono">dex-remediation</span> MCP server.</p>
+          <p>A security email asks for a software version to be removed: find it, check it is safe, and remove it after a named person approves.</p>
         </div>
         {emails.data?.imap_configured && (
           <button className="btn btn-ghost btn-sm" onClick={poll} disabled={busy === "poll"}><RefreshCw size={13} />Poll mailbox</button>
@@ -252,6 +251,7 @@ export default function Remediation() {
         </Card>
       )}
 
+      <AnalystOnly>
       <div className="grid g-2 mt">
         <Card title="Recent runs">
           <QueryState q={runs}>
@@ -281,8 +281,9 @@ export default function Remediation() {
           </QueryState>
         </Card>
       </div>
-      <footer className="foot">Parsing, matching, safety checks, execution and the audit trail are the same code the MCP server uses
-        (<span className="mono">backend/app/remediation</span>). See docs/REMEDIATION_MCP.md.</footer>
+      </AnalystOnly>
+      <AnalystOnly><footer className="foot">Parsing, matching, safety checks, execution and the audit trail are the same code the MCP server uses
+        (<span className="mono">backend/app/remediation</span>). See docs/REMEDIATION_MCP.md.</footer></AnalystOnly>
     </>
   );
 }

@@ -77,7 +77,7 @@ Remediation register                 ─┘                                   �
 | Root cause (primary) | 65% telemetry severity + 35% text-category fusion, then rule-based sub-causes | 100% top-1 vs category* |
 | Root cause (second opinion) | Logistic regression on TF-IDF text + standardised telemetry | 99.6% 5-fold CV (text-only 100%, telemetry-only 99.6%)* |
 | Predictive risk ("fix before they call") | LightGBM on telemetry levels and 1–4-week trends, recent experience history and device profile, predicting a frustrated ticket (frustration ≥ 60) next week. Per-prediction feature contributions grouped into drivers; isotonic calibration on out-of-time predictions (`engines/forecast.py`) | Rolling-origin backtest vs the rule at-risk score. On a 5,000-device × 26-week simulated fleet (`python -m app.data.simulator`): 72.3% of next-week frustrated tickets caught from the top 5% of devices vs 48.8% for rules; PR-AUC 0.455 vs 0.250. The bundled sample is flagged low-sample.* |
-| Copilot | Tool-using LLM agent (Claude `claude-opus-5-5` / Azure OpenAI), structured JSON output, RAG over 22 runbooks (BM25) | Grounding rule: every number must come from a tool result; mocked-loop test |
+| Copilot | Tool-using LLM agent (Claude `claude-sonnet-5-5` / Azure OpenAI), structured JSON output, RAG over 22 runbooks (BM25) | Grounding rule: every number must come from a tool result; mocked-loop test |
 
 \*The simulated categories are cleanly separable. Real-world accuracy will be lower, and the fusion weights should be refit on real diagnosis outcomes.
 

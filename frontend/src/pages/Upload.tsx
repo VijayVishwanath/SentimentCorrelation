@@ -110,8 +110,8 @@ function Result({ job }: { job: Any }) {
         <div>
           <div className="field">Explore the results</div>
           <div className="grid" style={{ gap: 6 }}>
-            {[["/", "Command Center"], ["/correlation", "Correlation Engine"], ["/experience", "Experience Analytics"],
-              ["/telemetry", "Telemetry Intelligence"], ["/diagnosis", "Diagnosis Assist"], ["/outcomes", "Outcome Reporting"], ["/dex-score", "DEX Score"]].map(([to, l]) => (
+            {[["/", "Command Center"], ["/evidence?tab=correlation", "Correlation Engine"], ["/evidence?tab=experience", "Experience Analytics"],
+              ["/evidence?tab=telemetry", "Telemetry Intelligence"], ["/diagnosis", "Diagnosis Assist"], ["/value", "Outcome Reporting"], ["/evidence", "DEX Score"]].map(([to, l]) => (
               <Link key={to} to={to} className="card-flat row between" style={{ textDecoration: "none" }}><span>{l}</span><ArrowRight size={14} /></Link>
             ))}
           </div>

@@ -1,4 +1,4 @@
-import { BookOpen, Bot, Send, Wrench, X } from "lucide-react";
+import { BookOpen, Send, Wrench, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { useSearchParams } from "react-router-dom";
@@ -92,7 +92,6 @@ export default function Copilot() {
   const [busy, setBusy] = useState(false);
   const [kb, setKb] = useState<string | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
-  const status = useApi("/v1/copilot/status");
   const meta = useMeta();
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" }); }, [turns, busy]);
@@ -128,10 +127,8 @@ export default function Copilot() {
         <div>
           <div className="eyebrow">DEX Copilot</div>
           <h2>Ask about any ticket, device or the whole fleet</h2>
-          <p>An agent that calls DEX Sentinel's engines as tools (diagnosis, telemetry, outcomes, fleet KPIs) and retrieves remediation
-            runbooks, then answers in business language — every number traceable to a tool result.</p>
+          <p>Ask in plain English. Every number in the answer comes from the platform's own data.</p>
         </div>
-        {status.data && <span className="chip"><Bot size={12} />{status.data.llm_enabled ? `${status.data.provider} · ${status.data.model}` : "Grounded template engine (set ANTHROPIC_API_KEY for LLM mode)"}</span>}
       </div>
       <div className="grid g-split" style={{ gridTemplateColumns: "minmax(0,1.6fr) minmax(0,0.8fr)" }}>
         <Card>

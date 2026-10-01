@@ -17,7 +17,7 @@ TABLES: dict[str, dict[str, tuple[str, bool]]] = {
         "device_id": (S, True), "week": (I, True), "week_start": (D, False),
         "boot_duration_sec": (F, False), "app_hang_count": (F, False), "network_latency_ms": (F, False),
         "packet_loss_pct": (F, False), "policy_compliant": (B, False), "hardware_health_score": (F, False),
-        "battery_health_pct": (F, False), "disk_health_pct": (F, False),
+        "battery_health_pct": (F, False), "disk_health_pct": (F, False), "device_temperature_c": (F, False),
     },
     "tickets": {
         "ticket_id": (S, True), "device_id": (S, True), "employee_name": (S, False), "department": (S, False),
@@ -48,7 +48,8 @@ PRIMARY_KEYS = {"devices": ["device_id"], "telemetry": ["device_id", "week"], "t
                 "remediations": ["remediation_id"]}
 
 TELEMETRY_SIGNAL_COLUMNS = ["boot_duration_sec", "app_hang_count", "network_latency_ms", "packet_loss_pct",
-                            "policy_compliant", "hardware_health_score", "battery_health_pct", "disk_health_pct"]
+                            "policy_compliant", "hardware_health_score", "battery_health_pct", "disk_health_pct",
+                            "device_temperature_c"]
 
 REMEDIATION_METRIC_COLUMNS = [c for c in TABLES["remediations"] if c.startswith(("pre_", "post_"))]
 
@@ -84,6 +85,8 @@ COLUMN_ALIASES: dict[str, dict[str, list[str]]] = {
         "hardware_health_score": ["hardware_health", "hw_health", "hardware_score", "device_health_score"],
         "battery_health_pct": ["battery_health", "battery_pct", "battery"],
         "disk_health_pct": ["disk_health", "disk_pct", "ssd_health", "storage_health"],
+        "device_temperature_c": ["device_temperature", "temperature", "temperature_c", "temp_c", "cpu_temp",
+                                 "cpu_temperature", "cpu_temp_c", "thermal_c", "device_temp"],
     },
     "tickets": {
         "ticket_id": ["number", "ticket", "ticket_number", "incident_id", "incident_number", "case_id", "id"],

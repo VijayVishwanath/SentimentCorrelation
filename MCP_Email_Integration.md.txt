@@ -1,0 +1,2439 @@
+# MCP Email Integration & Automated Software Removal Platform
+## Complete Implementation Plan for Unauthorized Software Detection & Remediation
+
+---
+
+## Table of Contents
+1. [Executive Overview](#1-executive-overview)
+2. [Architecture Design](#2-architecture-design)
+3. [MCP Server Implementation](#3-mcp-server-implementation)
+4. [AI Agent Workflow](#4-ai-agent-workflow)
+5. [Software Detection & Removal Engine](#5-software-detection--removal-engine)
+6. [Service Account Management](#6-service-account-management)
+7. [Email Parser & Extractor](#7-email-parser--extractor)
+8. [Error Handling & Rollback](#8-error-handling--rollback)
+9. [Audit Logging & Compliance](#9-audit-logging--compliance)
+10. [Integration with DEX Sentinel](#10-integration-with-dex-sentinel)
+11. [Deployment & Configuration](#11-deployment--configuration)
+12. [Implementation Timeline](#12-implementation-timeline)
+
+---
+
+## 1. Executive Overview
+
+### Vision
+Fully automated unauthorized software remediation pipeline that:
+- **Listens** to incoming emails from authorized security team
+- **Parses** software details (name, version, removal reason)
+- **Detects** the software across all system paths (C:\Program Files, C:\Program Files (x86), registry, AppData, etc.)
+- **Identifies** the specific version(s) and validates removal safety
+- **Removes** ONLY the notified version using a privileged service account
+- **Verifies** successful removal and reports outcomes
+- **Logs** everything for audit and continuous improvement
+
+### Key Requirements
+```
+✓ MCP Email Server (Gmail/Office 365 integration)
+✓ AI Agent (Claude) to orchestrate workflow
+✓ Multi-path software detection (registry, file system, WMI)
+✓ Version-specific removal (not all versions)
+✓ Service account with elevated permissions
+✓ Atomic operations (all-or-nothing removal)
+✓ Automatic rollback on failure
+✓ DEX Sentinel integration for outcome measurement
+✓ Audit trail for compliance
+✓ User notification (sentiment-optimized)
+```
+
+### High-Level Flow
+```
+EMAIL RECEIVED
+    ↓
+MCP EMAIL SERVER reads & notifies
+    ↓
+AI AGENT orchestrates
+    ├─ Parse email → extract software details
+    ├─ Validate against whitelist
+    ├─ Detect installations across all paths
+    ├─ Get service account credentials (encrypted)
+    └─ Determine removal strategy
+    ↓
+SOFTWARE DETECTION ENGINE
+    ├─ Registry scan (HKLM, HKCU)
+    ├─ File system scan (Program Files, Program Files x86, AppData)
+    ├─ WMI/MSI query
+    ├─ Running processes check
+    └─ Version comparison → match to email version
+    ↓
+SERVICE ACCOUNT EXECUTION
+    ├─ Create system restore point
+    ├─ Uninstall via MSI / manual removal
+    ├─ Clean registry entries
+    ├─ Delete residual files
+    └─ Verify removal complete
+    ↓
+VALIDATION & VERIFICATION
+    ├─ Re-scan file system
+    ├─ Re-scan registry
+    ├─ Verify no running processes
+    └─ Signature of removal
+    ↓
+OUTCOME LOGGING
+    ├─ Success/failure to DEX Sentinel
+    ├─ Telemetry impact (boot time, performance)
+    ├─ User notification
+    └─ Alert security team
+```
+
+---
+
+## 2. Architecture Design
+
+### 2.1 System Architecture
+
+```
+┌────────────────────────────────────────────────────────────────────┐
+│                    EMAIL SOURCES                                    │
+│  Gmail / Office 365 / Custom SMTP                                   │
+│  FROM: security-team@company.com                                    │
+│  SUBJECT: [UNAUTHORIZED-SOFTWARE] AppName Version X.X.X             │
+└─────────────────────────┬──────────────────────────────────────────┘
+                          ↓
+┌────────────────────────────────────────────────────────────────────┐
+│              MCP EMAIL SERVER (Custom Tool)                          │
+│  ├─ Poll email every 5 minutes                                      │
+│  ├─ Parse sender whitelist                                          │
+│  ├─ Extract metadata (software, version, reason, urgency)           │
+│  ├─ Decrypt email attachments (if remediation runbooks)             │
+│  └─ Publish event to queue                                          │
+└─────────────────────────┬──────────────────────────────────────────┘
+                          ↓
+┌────────────────────────────────────────────────────────────────────┐
+│            AI AGENT ORCHESTRATOR (Claude)                            │
+│  ├─ Receive email event                                             │
+│  ├─ Call email_parser tool → extract details                        │
+│  ├─ Call software_inventory tool → list all versions                │
+│  ├─ Call version_matcher tool → identify target devices             │
+│  ├─ Call safety_validator tool → check dependencies                 │
+│  ├─ Call credential_manager tool → get service account creds        │
+│  ├─ Call removal_orchestrator tool → execute removal                │
+│  └─ Call outcome_reporter tool → log to DEX Sentinel                │
+└─────────────────────────┬──────────────────────────────────────────┘
+                          ↓
+        ┌─────────────────┴─────────────────┐
+        ↓                                   ↓
+┌──────────────────────────┐     ┌──────────────────────────┐
+│ SOFTWARE DETECTION       │     │  SERVICE ACCOUNT EXEC    │
+│ ├─ Registry scan         │     │  ├─ Decrypt credentials  │
+│ ├─ File system scan      │     │  ├─ Uninstall MSI        │
+│ ├─ WMI query             │     │  ├─ Delete files         │
+│ ├─ Process list          │     │  ├─ Clean registry       │
+│ └─ Version matching      │     │  └─ Verify removal       │
+└──────────────────────────┘     └──────────────────────────┘
+        ↓                                   ↓
+        └─────────────────┬─────────────────┘
+                          ↓
+┌────────────────────────────────────────────────────────────────────┐
+│           VALIDATION & OUTCOME LOGGING                              │
+│  ├─ Re-verification of removal                                      │
+│  ├─ Telemetry capture (before/after)                                │
+│  ├─ DEX Sentinel integration                                        │
+│  ├─ Audit log entry (immutable)                                     │
+│  ├─ User notification                                               │
+│  └─ Security team alert                                             │
+└────────────────────────────────────────────────────────────────────┘
+```
+
+### 2.2 Component Stack
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                     LAYER 1: INPUT                              │
+│  Email Service (Gmail API, Office 365 API, IMAP)                │
+└─────────────────────────────────────────────────────────────────┘
+        ↓
+┌─────────────────────────────────────────────────────────────────┐
+│              LAYER 2: MCP SERVER (Custom Tool)                  │
+│  Tool: email_monitor_mcp                                         │
+│  └─ Responsibilities:                                            │
+│     ├─ Connect to email service                                  │
+│     ├─ Poll for new emails (5-min interval)                     │
+│     ├─ Validate sender (whitelist)                               │
+│     ├─ Parse email structure                                     │
+│     └─ Publish to event queue                                    │
+└─────────────────────────────────────────────────────────────────┘
+        ↓
+┌─────────────────────────────────────────────────────────────────┐
+│         LAYER 3: AI AGENT & ORCHESTRATION (Claude)              │
+│  Agent: software-remediation-agent                               │
+│  └─ Responsibilities:                                            │
+│     ├─ Listen for events from MCP                                │
+│     ├─ Orchestrate multi-step workflow                           │
+│     ├─ Make decisions (approval, escalation)                     │
+│     ├─ Handle errors & fallbacks                                 │
+│     └─ Coordinate across tools                                   │
+└─────────────────────────────────────────────────────────────────┘
+        ↓
+┌─────────────────────────────────────────────────────────────────┐
+│         LAYER 4: BUSINESS LOGIC TOOLS (MCP Tools)               │
+│  ├─ email_parser_tool                                            │
+│  ├─ software_inventory_tool                                      │
+│  ├─ version_matcher_tool                                         │
+│  ├─ safety_validator_tool                                        │
+│  ├─ credential_manager_tool                                      │
+│  ├─ removal_orchestrator_tool                                    │
+│  └─ outcome_reporter_tool                                        │
+└─────────────────────────────────────────────────────────────────┘
+        ↓
+┌─────────────────────────────────────────────────────────────────┐
+│      LAYER 5: ENDPOINT & DETECTION ENGINES                       │
+│  ├─ PowerShell Registry Scanner                                  │
+│  ├─ File System Scanner                                          │
+│  ├─ WMI Query Engine                                             │
+│  ├─ MSI Removal Engine                                           │
+│  └─ Verification Scanner                                         │
+└─────────────────────────────────────────────────────────────────┘
+        ↓
+┌─────────────────────────────────────────────────────────────────┐
+│          LAYER 6: PERSISTENCE & REPORTING                        │
+│  ├─ Audit Log Database (immutable)                               │
+│  ├─ DEX Sentinel Integration                                     │
+│  ├─ Notification Service                                         │
+│  └─ Security Dashboard                                           │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### 2.3 Data Flow Diagram
+
+```mermaid
+graph TD
+    EMAIL["📧 Email from security-team@company.com<br/>[UNAUTHORIZED-SOFTWARE] .NET 6.0.36"]
+    
+    MCP["🔗 MCP Email Server<br/>Polls & Extracts"]
+    
+    AGENT["🤖 AI Agent Orchestrator<br/>Claude + Tool Calling"]
+    
+    PARSER["📋 Email Parser Tool<br/>Extract:<br/>- Software Name<br/>- Version<br/>- Device IDs<br/>- Removal Reason<br/>- Urgency Level"]
+    
+    INVENTORY["🔍 Software Inventory Tool<br/>Query:<br/>- Registry (HKLM, HKCU)<br/>- File System Paths<br/>- WMI/MSI Database<br/>- Running Processes"]
+    
+    MATCHER["🎯 Version Matcher Tool<br/>Match:<br/>- Exact version from email<br/>- Across all paths<br/>- Multiple instances<br/>- Dependency check"]
+    
+    VALIDATOR["✅ Safety Validator Tool<br/>Check:<br/>- Other apps depend on it?<br/>- System critical?<br/>- Rollback available?<br/>- User running app?"]
+    
+    CREDS["🔐 Credential Manager<br/>Retrieve:<br/>- Encrypted service account<br/>- Temporary token<br/>- Permissions verified"]
+    
+    REMOVE["⚙️ Removal Orchestrator<br/>Execute:<br/>- Restore point<br/>- MSI uninstall<br/>- File deletion<br/>- Registry cleanup"]
+    
+    VERIFY["✔️ Verification Engine<br/>Validate:<br/>- File system re-scan<br/>- Registry re-scan<br/>- Process check<br/>- Signature match"]
+    
+    LOG["📊 Outcome Reporter<br/>Log:<br/>- Success/Failure<br/>- Before/After telemetry<br/>- To DEX Sentinel<br/>- To Audit DB"]
+    
+    NOTIFY["💬 User Notification<br/>Send:<br/>- Sentiment-optimized message<br/>- Removal confirmation<br/>- Performance improvement<br/>- Support contact"]
+    
+    EMAIL --> MCP
+    MCP --> AGENT
+    AGENT --> PARSER
+    PARSER --> INVENTORY
+    INVENTORY --> MATCHER
+    MATCHER --> VALIDATOR
+    VALIDATOR --> CREDS
+    CREDS --> REMOVE
+    REMOVE --> VERIFY
+    VERIFY --> LOG
+    LOG --> NOTIFY
+```
+
+---
+
+## 3. MCP Server Implementation
+
+### 3.1 MCP Email Server Tool Structure
+
+```python
+# mcp_email_server.py - Custom MCP Tool
+
+from typing import TypedDict
+import email
+from email.mime.text import MIMEText
+from datetime import datetime
+import json
+import asyncio
+
+class EmailMetadata(TypedDict):
+    message_id: str
+    sender: str
+    subject: str
+    received_time: str
+    software_name: str
+    software_version: str
+    device_ids: list[str]
+    removal_reason: str
+    urgency: str  # "critical", "high", "medium", "low"
+    attachments: list[dict]
+
+class MCPEmailServer:
+    """
+    MCP Tool: Email monitoring and extraction
+    Listens for unauthorized software notifications and extracts metadata
+    """
+    
+    def __init__(self):
+        self.email_service = self._init_email_service()
+        self.whitelist = self._load_sender_whitelist()
+        self.event_queue = asyncio.Queue()
+        self.last_check = None
+        
+    def _init_email_service(self):
+        """Initialize Gmail API, Office 365, or IMAP connection"""
+        # Option 1: Gmail API
+        # Option 2: Office 365 REST API
+        # Option 3: IMAP (generic)
+        pass
+    
+    def _load_sender_whitelist(self) -> list[str]:
+        """Load authorized email addresses from config"""
+        return [
+            "security-team@company.com",
+            "it-compliance@company.com",
+            "vulnerability-scanner@company.com"
+        ]
+    
+    async def poll_emails(self, interval_seconds: int = 300):
+        """
+        Poll for new emails every N seconds
+        Only process emails from whitelisted senders
+        """
+        while True:
+            try:
+                # Connect to email service
+                new_emails = self.email_service.search(
+                    q="subject:([UNAUTHORIZED-SOFTWARE] OR [SECURITY-PATCH] OR [EOL-SOFTWARE])",
+                    after=self.last_check,
+                    from_=self.whitelist
+                )
+                
+                for email_msg in new_emails:
+                    metadata = self._parse_email(email_msg)
+                    if metadata:
+                        await self.event_queue.put({
+                            "type": "unauthorized_software_detected",
+                            "payload": metadata,
+                            "timestamp": datetime.now().isoformat()
+                        })
+                
+                self.last_check = datetime.now()
+                await asyncio.sleep(interval_seconds)
+                
+            except Exception as e:
+                # Log error, continue polling
+                print(f"Email polling error: {e}")
+                await asyncio.sleep(60)  # Retry sooner on error
+    
+    def _parse_email(self, email_msg) -> EmailMetadata:
+        """
+        Parse email to extract:
+        - Software name, version
+        - Target device IDs
+        - Removal reason
+        - Urgency
+        
+        Email format example:
+        ───────────────────────────────────────
+        Subject: [UNAUTHORIZED-SOFTWARE] .NET 6.0.36 Requires Immediate Removal
+        From: security-team@company.com
+        
+        Software: Microsoft .NET Runtime
+        Version: 6.0.36
+        Status: End-of-Life (Nov 12, 2024)
+        Risk Level: CRITICAL
+        Urgency: IMMEDIATE (24 hours)
+        
+        Affected Devices:
+        - Device IDs: DEV-0042, DEV-0043, DEV-0044
+        - OS: Windows 10/11 Enterprise
+        - Department: Engineering, Finance
+        
+        Removal Action:
+        Uninstall .NET 6.0.36 from both 64-bit and 32-bit locations
+        Replace with: .NET 8.0.16 LTS
+        
+        Reason: Security vulnerability CVE-2024-21XX
+        Expected Impact: +15% boot time improvement
+        ───────────────────────────────────────
+        """
+        
+        try:
+            subject = email_msg.get("subject", "")
+            body = email_msg.get_payload()
+            sender = email_msg.get("from", "")
+            
+            # Validate sender
+            if not any(s in sender for s in self.whitelist):
+                return None
+            
+            # Extract structured data from email body (regex or NLP)
+            metadata = {
+                "message_id": email_msg.get("message-id", str(uuid.uuid4())),
+                "sender": sender,
+                "subject": subject,
+                "received_time": email_msg.get("date", datetime.now().isoformat()),
+                "software_name": self._extract_field(body, "Software:"),
+                "software_version": self._extract_field(body, "Version:"),
+                "device_ids": self._extract_device_ids(body),
+                "removal_reason": self._extract_field(body, "Reason:"),
+                "urgency": self._extract_urgency(subject, body),
+                "attachments": self._extract_attachments(email_msg)
+            }
+            
+            # Validate required fields
+            if metadata["software_name"] and metadata["software_version"]:
+                return metadata
+            
+            return None
+            
+        except Exception as e:
+            print(f"Email parsing error: {e}")
+            return None
+    
+    def _extract_field(self, body: str, field_name: str) -> str:
+        """Extract field value from email body"""
+        import re
+        pattern = f"{field_name}\\s+([^\\n]+)"
+        match = re.search(pattern, body, re.IGNORECASE)
+        return match.group(1).strip() if match else ""
+    
+    def _extract_device_ids(self, body: str) -> list[str]:
+        """Extract device IDs (DEV-XXXX pattern)"""
+        import re
+        return re.findall(r'DEV-\d{4}', body)
+    
+    def _extract_urgency(self, subject: str, body: str) -> str:
+        """Determine urgency level"""
+        urgency_keywords = {
+            "critical": ["CRITICAL", "IMMEDIATE", "URGENT", "24 hours"],
+            "high": ["HIGH", "ASAP", "1 week"],
+            "medium": ["MEDIUM", "2 weeks"],
+            "low": ["LOW", "30 days"]
+        }
+        
+        combined = f"{subject} {body}".upper()
+        for level, keywords in urgency_keywords.items():
+            if any(kw in combined for kw in keywords):
+                return level
+        return "medium"
+    
+    def _extract_attachments(self, email_msg) -> list[dict]:
+        """Extract attachments (remediation runbooks, etc.)"""
+        attachments = []
+        for part in email_msg.walk():
+            if part.get_content_disposition() == "attachment":
+                attachments.append({
+                    "filename": part.get_filename(),
+                    "content_type": part.get_content_type(),
+                    "size_bytes": len(part.get_payload())
+                })
+        return attachments
+
+# MCP Tool Definition (for Claude integration)
+EMAIL_MONITOR_TOOL = {
+    "name": "email_monitor",
+    "description": "Monitor emails for unauthorized software notifications and extract metadata",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "action": {
+                "type": "string",
+                "enum": ["start_polling", "get_pending_events", "mark_processed"],
+                "description": "Action to perform"
+            },
+            "event_id": {
+                "type": "string",
+                "description": "Event ID to mark as processed"
+            }
+        },
+        "required": ["action"]
+    }
+}
+```
+
+### 3.2 MCP Tool Configuration (Tools Definition)
+
+```json
+{
+  "name": "email_monitor_mcp",
+  "type": "stdio",
+  "command": "python",
+  "args": ["-m", "mcp_email_server"],
+  "env": {
+    "GMAIL_CREDENTIALS_FILE": "/etc/secrets/gmail-creds.json",
+    "EMAIL_WHITELIST": "security-team@company.com,it-compliance@company.com",
+    "POLLING_INTERVAL_SECONDS": "300",
+    "LOG_LEVEL": "INFO"
+  }
+}
+```
+
+### 3.3 Email Service Connectors
+
+```python
+# email_connectors.py
+
+class EmailConnectorBase:
+    """Base class for email service connectors"""
+    
+    def search(self, q: str, after: datetime, from_: list[str]) -> list:
+        raise NotImplementedError
+    
+    def get_message(self, message_id: str) -> dict:
+        raise NotImplementedError
+
+class GmailConnector(EmailConnectorBase):
+    """Google Gmail API connector"""
+    
+    def __init__(self, credentials_file: str):
+        from google.oauth2.service_account import Credentials
+        from googleapiclient.discovery import build
+        
+        self.credentials = Credentials.from_service_account_file(credentials_file)
+        self.service = build('gmail', 'v1', credentials=self.credentials)
+    
+    def search(self, q: str, after: datetime, from_: list[str]) -> list:
+        query = q
+        if after:
+            query += f" after:{int(after.timestamp())}"
+        
+        results = self.service.users().messages().list(userId='me', q=query).execute()
+        messages = results.get('messages', [])
+        
+        return [self.service.users().messages().get(userId='me', id=m['id']).execute()
+                for m in messages]
+
+class Office365Connector(EmailConnectorBase):
+    """Microsoft Office 365 / Exchange Online connector"""
+    
+    def __init__(self, tenant_id: str, client_id: str, client_secret: str):
+        from office365.graph_client import GraphClient
+        from office365.runtime.auth.token_request import ClientCredentialTokenRequest
+        
+        token = ClientCredentialTokenRequest(
+            authority=f"https://login.microsoftonline.com/{tenant_id}",
+            client_id=client_id,
+            client_secret=client_secret
+        ).get_token()
+        
+        self.client = GraphClient(lambda: token)
+    
+    def search(self, q: str, after: datetime, from_: list[str]) -> list:
+        # Use Office 365 search API
+        mailbox = self.client.me.mail_folders['inbox']
+        # Implement search...
+        pass
+
+class IMAPConnector(EmailConnectorBase):
+    """Generic IMAP connector (backup option)"""
+    
+    def __init__(self, host: str, username: str, password: str):
+        import imaplib
+        self.connection = imaplib.IMAP4_SSL(host)
+        self.connection.login(username, password)
+    
+    def search(self, q: str, after: datetime, from_: list[str]) -> list:
+        # IMAP search syntax
+        # status, messages = self.connection.search(None, 'ALL')
+        pass
+```
+
+---
+
+## 4. AI Agent Workflow
+
+### 4.1 Agent Architecture (Claude + Tool Calling)
+
+```python
+# agent.py
+
+from anthropic import Anthropic
+import json
+from typing import Any
+
+class SoftwareRemediationAgent:
+    """
+    AI Agent for orchestrating automated software removal
+    Uses Claude with tool calling to coordinate the entire workflow
+    """
+    
+    def __init__(self, api_key: str, model: str = "claude-opus-5-5"):
+        self.client = Anthropic(api_key=api_key)
+        self.model = model
+        self.tools = self._define_tools()
+        self.conversation_history = []
+    
+    def _define_tools(self) -> list[dict]:
+        """Define all MCP tools the agent can call"""
+        return [
+            {
+                "name": "email_parser",
+                "description": "Parse email metadata and extract software details",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "message_id": {"type": "string", "description": "Email message ID"},
+                        "extract_fields": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "Fields to extract (software_name, version, device_ids, urgency)"
+                        }
+                    },
+                    "required": ["message_id"]
+                }
+            },
+            {
+                "name": "software_inventory",
+                "description": "Query all device installations of a specific software",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "software_name": {"type": "string"},
+                        "version": {"type": "string"},
+                        "scan_type": {
+                            "type": "string",
+                            "enum": ["registry", "filesystem", "wmi", "all"],
+                            "description": "Where to scan for the software"
+                        }
+                    },
+                    "required": ["software_name"]
+                }
+            },
+            {
+                "name": "version_matcher",
+                "description": "Match specific version across multiple installation paths",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "software_name": {"type": "string"},
+                        "target_version": {"type": "string"},
+                        "device_ids": {
+                            "type": "array",
+                            "items": {"type": "string"}
+                        }
+                    },
+                    "required": ["software_name", "target_version"]
+                }
+            },
+            {
+                "name": "safety_validator",
+                "description": "Check if removal is safe (no dependencies, not critical)",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "software_name": {"type": "string"},
+                        "version": {"type": "string"},
+                        "device_ids": {
+                            "type": "array",
+                            "items": {"type": "string"}
+                        },
+                        "check_types": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "enum": ["dependencies", "system_critical", "running_processes"]
+                        }
+                    },
+                    "required": ["software_name"]
+                }
+            },
+            {
+                "name": "credential_manager",
+                "description": "Get encrypted service account credentials for removal",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "service_account_name": {"type": "string"},
+                        "required_permissions": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "Registry delete, file delete, service stop"
+                        }
+                    },
+                    "required": ["service_account_name"]
+                }
+            },
+            {
+                "name": "removal_orchestrator",
+                "description": "Execute software removal with service account",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "software_name": {"type": "string"},
+                        "version": {"type": "string"},
+                        "device_ids": {"type": "array", "items": {"type": "string"}},
+                        "removal_method": {
+                            "type": "string",
+                            "enum": ["msi_uninstall", "manual_deletion", "registry_cleanup", "hybrid"],
+                            "description": "How to remove the software"
+                        },
+                        "create_restore_point": {"type": "boolean", "default": True},
+                        "parallel_execution": {"type": "boolean", "default": False}
+                    },
+                    "required": ["software_name", "device_ids", "removal_method"]
+                }
+            },
+            {
+                "name": "outcome_reporter",
+                "description": "Log removal outcome to DEX Sentinel and audit database",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "remediation_id": {"type": "string"},
+                        "success": {"type": "boolean"},
+                        "device_results": {
+                            "type": "object",
+                            "description": "Per-device success/failure"
+                        },
+                        "telemetry_before": {"type": "object"},
+                        "telemetry_after": {"type": "object"},
+                        "issues": {"type": "array", "items": {"type": "string"}}
+                    },
+                    "required": ["remediation_id", "success"]
+                }
+            }
+        ]
+    
+    async def process_email_event(self, event: dict) -> dict:
+        """
+        Process an incoming email event through the agent workflow
+        
+        Flow:
+        1. Parse email metadata
+        2. Query current inventory
+        3. Match specific version
+        4. Validate safety
+        5. Get credentials
+        6. Execute removal
+        7. Report outcomes
+        """
+        
+        metadata = event["payload"]
+        
+        # System prompt - guide the agent's behavior
+        system_prompt = """
+You are an automated software removal agent. Your job is to safely remove unauthorized/EOL software from enterprise endpoints.
+
+CONSTRAINTS:
+1. Only remove the SPECIFIC VERSION from the email, not all versions
+2. Always check safety first - no dependencies, not system critical
+3. Create restore points before removal
+4. Verify removal after execution
+5. Log everything for audit
+6. Alert human if anything fails
+
+PROCESS:
+1. Parse the email to get: software name, version, device IDs
+2. Query current inventory to find all installations
+3. Match the specific version mentioned in email
+4. Validate removal is safe (no running processes, no dependencies)
+5. Get service account credentials
+6. Execute removal in parallel (if multiple devices)
+7. Verify removal complete
+8. Log results to DEX Sentinel
+9. Notify users
+
+Remember: If ANY step fails, STOP and escalate to human. Do not continue.
+        """
+        
+        # Initial user message
+        user_message = f"""
+Please process this unauthorized software removal request:
+
+Email From: {metadata['sender']}
+Subject: {metadata['subject']}
+Received: {metadata['received_time']}
+
+Software Details:
+- Name: {metadata['software_name']}
+- Version: {metadata['software_version']}
+- Reason: {metadata['removal_reason']}
+- Urgency: {metadata['urgency']}
+
+Target Devices: {', '.join(metadata['device_ids'])}
+
+Please follow the standard workflow to safely remove this software.
+        """
+        
+        self.conversation_history.append({
+            "role": "user",
+            "content": user_message
+        })
+        
+        # Agentic loop
+        max_iterations = 10
+        iteration = 0
+        
+        while iteration < max_iterations:
+            iteration += 1
+            
+            # Call Claude with tools
+            response = self.client.messages.create(
+                model=self.model,
+                max_tokens=4096,
+                system=system_prompt,
+                tools=self.tools,
+                messages=self.conversation_history
+            )
+            
+            # Process response
+            if response.stop_reason == "end_turn":
+                # Agent completed workflow
+                return self._extract_final_result(response)
+            
+            elif response.stop_reason == "tool_use":
+                # Agent wants to call a tool
+                self.conversation_history.append({
+                    "role": "assistant",
+                    "content": response.content
+                })
+                
+                # Process tool calls
+                tool_results = []
+                for block in response.content:
+                    if block.type == "tool_use":
+                        result = await self._execute_tool(block.name, block.input)
+                        tool_results.append({
+                            "type": "tool_result",
+                            "tool_use_id": block.id,
+                            "content": json.dumps(result)
+                        })
+                
+                # Add tool results to conversation
+                self.conversation_history.append({
+                    "role": "user",
+                    "content": tool_results
+                })
+            
+            else:
+                # Unexpected stop reason
+                break
+        
+        return {
+            "status": "error",
+            "message": "Agent workflow exceeded maximum iterations"
+        }
+    
+    async def _execute_tool(self, tool_name: str, tool_input: dict) -> Any:
+        """Execute a tool and return result"""
+        
+        tool_executors = {
+            "email_parser": self._execute_email_parser,
+            "software_inventory": self._execute_software_inventory,
+            "version_matcher": self._execute_version_matcher,
+            "safety_validator": self._execute_safety_validator,
+            "credential_manager": self._execute_credential_manager,
+            "removal_orchestrator": self._execute_removal_orchestrator,
+            "outcome_reporter": self._execute_outcome_reporter
+        }
+        
+        if tool_name in tool_executors:
+            return await tool_executors[tool_name](tool_input)
+        else:
+            return {"error": f"Unknown tool: {tool_name}"}
+    
+    def _extract_final_result(self, response) -> dict:
+        """Extract final result from agent response"""
+        # Parse the final message from Claude
+        # Return structured outcome
+        pass
+```
+
+### 4.2 Tool Implementations
+
+```python
+# tool_implementations.py
+
+async def _execute_email_parser(self, input_data: dict) -> dict:
+    """Extract and return email metadata"""
+    message_id = input_data["message_id"]
+    # Query database for this message
+    return {
+        "software_name": "Microsoft .NET Runtime",
+        "software_version": "6.0.36",
+        "device_ids": ["DEV-0042", "DEV-0043", "DEV-0044"],
+        "removal_reason": "Security - End of Life",
+        "urgency": "critical"
+    }
+
+async def _execute_software_inventory(self, input_data: dict) -> dict:
+    """Query all installations of a software"""
+    software_name = input_data["software_name"]
+    scan_type = input_data.get("scan_type", "all")
+    
+    # Query registry, file system, WMI
+    installations = [
+        {
+            "device_id": "DEV-0042",
+            "path": "C:\\Program Files\\dotnet",
+            "version": "6.0.36",
+            "architecture": "x64",
+            "registry_key": "HKLM\\Software\\Microsoft\\.NET"
+        },
+        {
+            "device_id": "DEV-0042",
+            "path": "C:\\Program Files (x86)\\dotnet",
+            "version": "6.0.36",
+            "architecture": "x86",
+            "registry_key": "HKLM\\Software\\Wow6432Node\\Microsoft\\.NET"
+        },
+        {
+            "device_id": "DEV-0043",
+            "path": "C:\\Program Files\\dotnet",
+            "version": "6.0.36",
+            "architecture": "x64",
+            "registry_key": "HKLM\\Software\\Microsoft\\.NET"
+        }
+    ]
+    
+    return {
+        "total_found": len(installations),
+        "installations": installations
+    }
+
+async def _execute_version_matcher(self, input_data: dict) -> dict:
+    """Match specific version to remove"""
+    target_version = input_data["target_version"]
+    
+    # Compare versions and identify exact matches
+    matching_installations = [
+        {
+            "device_id": "DEV-0042",
+            "path": "C:\\Program Files\\dotnet",
+            "version": "6.0.36",
+            "match_confidence": 1.0
+        },
+        {
+            "device_id": "DEV-0042",
+            "path": "C:\\Program Files (x86)\\dotnet",
+            "version": "6.0.36",
+            "match_confidence": 1.0
+        },
+        {
+            "device_id": "DEV-0043",
+            "path": "C:\\Program Files\\dotnet",
+            "version": "6.0.36",
+            "match_confidence": 1.0
+        }
+    ]
+    
+    return {
+        "target_version": target_version,
+        "matching_count": len(matching_installations),
+        "matches": matching_installations
+    }
+
+async def _execute_safety_validator(self, input_data: dict) -> dict:
+    """Validate removal is safe"""
+    
+    # Check:
+    # 1. Running processes using this software
+    # 2. Other applications that depend on it
+    # 3. System criticality
+    
+    return {
+        "safe_to_remove": True,
+        "warnings": [],
+        "dependencies": [
+            {
+                "dependent_app": "MyAppX",
+                "version": "3.0",
+                "required_dotnet": "6.0.x",
+                "recommendation": "Update MyAppX to 3.5 which supports .NET 8.0"
+            }
+        ],
+        "running_processes": [],
+        "system_critical": False
+    }
+
+async def _execute_credential_manager(self, input_data: dict) -> dict:
+    """Get encrypted service account credentials"""
+    
+    # Retrieve from secure vault (Azure Key Vault, HashiCorp Vault, etc.)
+    return {
+        "service_account": "svc_software_removal",
+        "encrypted_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+        "token_expires_at": "2024-09-30T10:30:00Z",
+        "permissions": ["registry_delete", "file_delete", "msi_uninstall"],
+        "note": "Token valid for 30 minutes only"
+    }
+
+async def _execute_removal_orchestrator(self, input_data: dict) -> dict:
+    """Execute the actual removal"""
+    
+    device_ids = input_data["device_ids"]
+    removal_method = input_data.get("removal_method", "hybrid")
+    
+    results = {}
+    for device_id in device_ids:
+        results[device_id] = {
+            "status": "success",
+            "steps_completed": [
+                "✓ Restore point created",
+                "✓ .NET 6.0.36 uninstalled from C:\\Program Files\\dotnet",
+                "✓ .NET 6.0.36 uninstalled from C:\\Program Files (x86)\\dotnet",
+                "✓ Registry entries cleaned",
+                "✓ Verification passed",
+                "✓ Removal confirmed"
+            ],
+            "time_taken_seconds": 120,
+            "telemetry_impact": {
+                "boot_time_before": "58 seconds",
+                "boot_time_after": "41 seconds",
+                "improvement": "29%"
+            }
+        }
+    
+    return {
+        "remediation_id": "REM-20240930-001",
+        "total_devices": len(device_ids),
+        "successful": len(device_ids),
+        "failed": 0,
+        "results": results
+    }
+
+async def _execute_outcome_reporter(self, input_data: dict) -> dict:
+    """Log outcomes to DEX Sentinel and audit database"""
+    
+    # Insert into:
+    # 1. DEX Sentinel remediation table
+    # 2. Audit log (immutable)
+    # 3. Compliance database
+    
+    return {
+        "logged_to_dex_sentinel": True,
+        "logged_to_audit": True,
+        "dex_records_created": 3,
+        "user_notifications_sent": 3,
+        "security_team_alert": True
+    }
+```
+
+---
+
+## 5. Software Detection & Removal Engine
+
+### 5.1 Multi-Path Detection Strategy
+
+```python
+# software_detector.py
+
+class SoftwareDetectionEngine:
+    """
+    Comprehensive software detection across all Windows system paths
+    Handles registry, file system, WMI, and running processes
+    """
+    
+    def __init__(self):
+        self.detected_locations = {}
+    
+    def scan_all_paths(self, software_name: str, target_version: str = None) -> dict:
+        """
+        Scan all possible installation paths for a software
+        Returns all instances, versions, and locations
+        """
+        
+        results = {
+            "software_name": software_name,
+            "scan_time": datetime.now().isoformat(),
+            "instances_found": []
+        }
+        
+        # 1. Registry scan (HKLM and HKCU)
+        results["instances_found"].extend(
+            self._scan_registry(software_name, target_version)
+        )
+        
+        # 2. File system scan (Program Files and variations)
+        results["instances_found"].extend(
+            self._scan_filesystem(software_name, target_version)
+        )
+        
+        # 3. WMI/MSI Database scan
+        results["instances_found"].extend(
+            self._scan_wmi(software_name, target_version)
+        )
+        
+        # 4. Running processes check
+        results["running_processes"] = self._check_running_processes(software_name)
+        
+        return results
+    
+    def _scan_registry(self, software_name: str, target_version: str = None) -> list:
+        """
+        Scan Windows registry for software installations
+        
+        Standard registry paths:
+        - HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall
+        - HKLM\\Software\\Wow6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall (x86 on x64)
+        - HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall
+        """
+        
+        import winreg
+        instances = []
+        
+        registry_paths = [
+            (winreg.HKEY_LOCAL_MACHINE, r"Software\Microsoft\Windows\CurrentVersion\Uninstall"),
+            (winreg.HKEY_LOCAL_MACHINE, r"Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall"),
+            (winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Uninstall"),
+        ]
+        
+        for hive, path in registry_paths:
+            try:
+                with winreg.OpenKey(hive, path) as key:
+                    for i in range(winreg.QueryInfoKey(key)[0]):
+                        subkey_name = winreg.EnumKey(key, i)
+                        
+                        with winreg.OpenKey(key, subkey_name) as subkey:
+                            try:
+                                display_name = winreg.QueryValueEx(subkey, "DisplayName")[0]
+                                version = winreg.QueryValueEx(subkey, "DisplayVersion")[0]
+                                install_location = winreg.QueryValueEx(subkey, "InstallLocation")[0]
+                                uninstall_string = winreg.QueryValueEx(subkey, "UninstallString")[0]
+                                
+                                # Check if this matches our software
+                                if self._matches_software(display_name, software_name):
+                                    if not target_version or self._version_matches(version, target_version):
+                                        instances.append({
+                                            "detection_method": "registry",
+                                            "registry_hive": "HKLM" if hive == winreg.HKEY_LOCAL_MACHINE else "HKCU",
+                                            "registry_key": f"{path}\\{subkey_name}",
+                                            "display_name": display_name,
+                                            "version": version,
+                                            "install_location": install_location,
+                                            "uninstall_string": uninstall_string,
+                                            "uninstall_method": "msi" if ".msi" in uninstall_string else "exe"
+                                        })
+                            except WindowsError:
+                                pass
+            except WindowsError:
+                pass
+        
+        return instances
+    
+    def _scan_filesystem(self, software_name: str, target_version: str = None) -> list:
+        """
+        Scan file system for software installations
+        
+        Common paths:
+        - C:\\Program Files
+        - C:\\Program Files (x86)
+        - C:\\ProgramData
+        - %APPDATA%
+        - %LOCALAPPDATA%
+        """
+        
+        import os
+        import re
+        
+        instances = []
+        scan_paths = [
+            "C:\\Program Files",
+            "C:\\Program Files (x86)",
+            "C:\\ProgramData",
+            os.path.expandvars("%APPDATA%"),
+            os.path.expandvars("%LOCALAPPDATA%")
+        ]
+        
+        software_keywords = software_name.lower().split()
+        
+        for scan_path in scan_paths:
+            if not os.path.exists(scan_path):
+                continue
+            
+            try:
+                for root, dirs, files in os.walk(scan_path):
+                    # Check directory name matches software
+                    if any(kw in root.lower() for kw in software_keywords):
+                        
+                        # Look for version files
+                        for file in files:
+                            if file in ["version.txt", "version.ini", "about.txt"]:
+                                filepath = os.path.join(root, file)
+                                version = self._extract_version_from_file(filepath)
+                                
+                                if not target_version or self._version_matches(version, target_version):
+                                    instances.append({
+                                        "detection_method": "filesystem",
+                                        "root_path": root,
+                                        "version_file": filepath,
+                                        "version": version,
+                                        "file_count": len(files),
+                                        "total_size_mb": sum(
+                                            os.path.getsize(os.path.join(root, f)) 
+                                            for f in files if os.path.isfile(os.path.join(root, f))
+                                        ) / (1024 * 1024)
+                                    })
+            except Exception as e:
+                print(f"Error scanning {scan_path}: {e}")
+        
+        return instances
+    
+    def _scan_wmi(self, software_name: str, target_version: str = None) -> list:
+        """
+        Scan WMI for installed software
+        Uses Win32_Product class which is more reliable for MSI packages
+        """
+        
+        import wmi
+        instances = []
+        
+        try:
+            wmi_conn = wmi.WMI()
+            products = wmi_conn.Win32_Product(Name=f"%{software_name}%")
+            
+            for product in products:
+                version = product.Version
+                
+                if not target_version or self._version_matches(version, target_version):
+                    instances.append({
+                        "detection_method": "wmi",
+                        "wmi_name": product.Name,
+                        "wmi_vendor": product.Vendor,
+                        "version": version,
+                        "install_location": product.InstallLocation,
+                        "install_date": product.InstallDate,
+                        "package_cache": product.PackageName,
+                        "uninstall_via_msi": True
+                    })
+        except Exception as e:
+            print(f"WMI scan error: {e}")
+        
+        return instances
+    
+    def _check_running_processes(self, software_name: str) -> list:
+        """
+        Check for any running processes related to the software
+        IMPORTANT: Cannot remove if processes are running
+        """
+        
+        import psutil
+        running_processes = []
+        
+        software_exes = [
+            f"{keyword}.exe" 
+            for keyword in software_name.lower().split()
+        ]
+        
+        for proc in psutil.process_iter(['pid', 'name', 'exe']):
+            try:
+                if any(exe in proc.info['name'].lower() for exe in software_exes):
+                    running_processes.append({
+                        "pid": proc.info['pid'],
+                        "name": proc.info['name'],
+                        "exe_path": proc.info['exe']
+                    })
+            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                pass
+        
+        return running_processes
+    
+    def _matches_software(self, display_name: str, software_name: str) -> bool:
+        """Check if display name matches software name"""
+        return all(
+            keyword.lower() in display_name.lower() 
+            for keyword in software_name.split()
+        )
+    
+    def _version_matches(self, found_version: str, target_version: str) -> bool:
+        """
+        Compare versions
+        Handle formats like:
+        - 6.0.36
+        - 6.0.36 (x64)
+        - 6.0.36-rc
+        """
+        
+        # Extract numeric version
+        import re
+        found_num = re.match(r'[\d.]+', found_version).group() if found_version else ""
+        target_num = re.match(r'[\d.]+', target_version).group() if target_version else ""
+        
+        return found_num == target_num
+    
+    def _extract_version_from_file(self, filepath: str) -> str:
+        """Extract version from text file"""
+        try:
+            with open(filepath, 'r') as f:
+                content = f.read()
+                import re
+                match = re.search(r'version\s*[:=]\s*([\d.]+)', content, re.IGNORECASE)
+                return match.group(1) if match else "unknown"
+        except:
+            return "unknown"
+```
+
+### 5.2 Version-Specific Removal
+
+```python
+# software_remover.py
+
+class SoftwareRemovalEngine:
+    """
+    Safely remove specific software versions
+    Handles MSI uninstall, manual file deletion, and registry cleanup
+    """
+    
+    def __init__(self, service_account_creds: dict):
+        self.creds = service_account_creds
+        self.removal_log = []
+    
+    def remove_software(self, 
+                       software_name: str,
+                       target_version: str,
+                       installations: list,
+                       create_restore_point: bool = True) -> dict:
+        """
+        Remove specific version of software from identified installations
+        
+        Strategy:
+        1. Create restore point
+        2. Stop running processes
+        3. Uninstall via MSI (if available)
+        4. Delete remaining files
+        5. Clean registry
+        6. Verify removal
+        """
+        
+        results = {
+            "software": software_name,
+            "target_version": target_version,
+            "start_time": datetime.now().isoformat(),
+            "installations_processed": []
+        }
+        
+        try:
+            # Step 1: Create restore point
+            if create_restore_point:
+                self._create_restore_point(f"Before removing {software_name} {target_version}")
+            
+            # Step 2: Stop running processes
+            running = self._stop_running_processes(software_name)
+            results["processes_stopped"] = len(running)
+            
+            # Step 3: Process each installation
+            for installation in installations:
+                inst_result = self._remove_installation(installation, target_version)
+                results["installations_processed"].append(inst_result)
+            
+            # Step 4: Final verification
+            remaining = self._verify_removal(software_name, target_version)
+            results["verification_passed"] = len(remaining) == 0
+            results["remaining_instances"] = remaining
+            
+        except Exception as e:
+            results["error"] = str(e)
+            results["rollback_available"] = True
+        
+        results["end_time"] = datetime.now().isoformat()
+        return results
+    
+    def _create_restore_point(self, description: str):
+        """Create Windows System Restore Point"""
+        import ctypes
+        import os
+        
+        # Must run as SYSTEM or administrator
+        cmd = f'powershell -Command "Checkpoint-Computer -Description \'{description}\' -RestorePointType MODIFY_SETTINGS"'
+        
+        # Execute with service account
+        result = self._execute_as_service_account(cmd)
+        self.removal_log.append(f"Restore point created: {description}")
+        return result
+    
+    def _stop_running_processes(self, software_name: str) -> list:
+        """Stop any running processes for the software"""
+        import subprocess
+        
+        stopped = []
+        running = self._check_running_processes(software_name)
+        
+        for proc in running:
+            try:
+                cmd = f"taskkill /PID {proc['pid']} /F"
+                self._execute_as_service_account(cmd)
+                stopped.append(proc)
+                self.removal_log.append(f"Stopped process: {proc['name']} (PID {proc['pid']})")
+            except Exception as e:
+                self.removal_log.append(f"Warning: Could not stop {proc['name']}: {e}")
+        
+        return stopped
+    
+    def _remove_installation(self, installation: dict, target_version: str) -> dict:
+        """Remove a single installation"""
+        
+        result = {
+            "path": installation.get("install_location") or installation.get("root_path"),
+            "version": installation.get("version"),
+            "steps": []
+        }
+        
+        try:
+            # Method 1: MSI Uninstall (preferred)
+            if installation.get("uninstall_method") == "msi" or installation.get("detection_method") == "wmi":
+                result["steps"].append(self._uninstall_via_msi(installation))
+            
+            # Method 2: EXE Uninstall
+            elif installation.get("uninstall_string"):
+                result["steps"].append(self._uninstall_via_exe(installation))
+            
+            # Method 3: Manual File Deletion
+            if installation.get("root_path") or installation.get("install_location"):
+                result["steps"].append(self._delete_files(installation))
+            
+            # Method 4: Registry Cleanup
+            if installation.get("registry_key"):
+                result["steps"].append(self._cleanup_registry(installation))
+            
+            result["status"] = "success"
+            
+        except Exception as e:
+            result["status"] = "failed"
+            result["error"] = str(e)
+        
+        return result
+    
+    def _uninstall_via_msi(self, installation: dict) -> dict:
+        """Uninstall using MSI Uninstall string"""
+        
+        uninstall_string = installation.get("uninstall_string", "")
+        
+        # Extract GUID from uninstall string
+        import re
+        guid_match = re.search(r'\{[A-F0-9]{8}-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{12}\}', uninstall_string)
+        
+        if guid_match:
+            guid = guid_match.group()
+            cmd = f'msiexec /x {guid} /qn /norestart'
+            
+            result = self._execute_as_service_account(cmd)
+            self.removal_log.append(f"MSI uninstall executed: {guid}")
+            
+            return {
+                "method": "msi_uninstall",
+                "guid": guid,
+                "exit_code": result.get("exit_code"),
+                "status": "completed" if result.get("exit_code") == 0 else "failed"
+            }
+        else:
+            return {
+                "method": "msi_uninstall",
+                "status": "skipped",
+                "reason": "No MSI GUID found"
+            }
+    
+    def _uninstall_via_exe(self, installation: dict) -> dict:
+        """Uninstall using uninstall EXE"""
+        
+        uninstall_exe = installation.get("uninstall_string", "")
+        
+        # Extract EXE path and flags
+        import re
+        exe_match = re.match(r'"([^"]+)"(.*)', uninstall_exe)
+        
+        if exe_match:
+            exe_path = exe_match.group(1)
+            flags = exe_match.group(2).strip()
+            
+            # Add silent flags if not present
+            if "/s" not in flags.lower() and "-s" not in flags.lower():
+                flags += " /S"
+            
+            cmd = f'"{exe_path}" {flags}'
+            result = self._execute_as_service_account(cmd)
+            
+            self.removal_log.append(f"EXE uninstall executed: {exe_path}")
+            
+            return {
+                "method": "exe_uninstall",
+                "exe_path": exe_path,
+                "exit_code": result.get("exit_code"),
+                "status": "completed"
+            }
+        else:
+            return {
+                "method": "exe_uninstall",
+                "status": "skipped",
+                "reason": "Could not parse uninstall string"
+            }
+    
+    def _delete_files(self, installation: dict) -> dict:
+        """Manually delete installation files"""
+        
+        install_path = installation.get("install_location") or installation.get("root_path")
+        
+        if not install_path:
+            return {
+                "method": "file_deletion",
+                "status": "skipped",
+                "reason": "No install path found"
+            }
+        
+        try:
+            import shutil
+            
+            # Back up before deletion
+            backup_path = f"{install_path}.backup.{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+            shutil.copytree(install_path, backup_path)
+            
+            # Delete
+            shutil.rmtree(install_path)
+            
+            self.removal_log.append(f"Files deleted: {install_path}")
+            
+            return {
+                "method": "file_deletion",
+                "path": install_path,
+                "backup_path": backup_path,
+                "status": "completed"
+            }
+        
+        except Exception as e:
+            return {
+                "method": "file_deletion",
+                "path": install_path,
+                "status": "failed",
+                "error": str(e)
+            }
+    
+    def _cleanup_registry(self, installation: dict) -> dict:
+        """Clean up registry entries"""
+        
+        registry_key = installation.get("registry_key")
+        
+        if not registry_key:
+            return {
+                "method": "registry_cleanup",
+                "status": "skipped",
+                "reason": "No registry key found"
+            }
+        
+        try:
+            import winreg
+            
+            # Parse registry key
+            parts = registry_key.split("\\")
+            hive_name = parts[0]  # HKLM or HKCU
+            key_path = "\\".join(parts[1:-1])
+            key_to_delete = parts[-1]
+            
+            # Map hive name
+            hive_map = {
+                "HKLM": winreg.HKEY_LOCAL_MACHINE,
+                "HKCU": winreg.HKEY_CURRENT_USER
+            }
+            hive = hive_map.get(hive_name)
+            
+            if not hive:
+                return {
+                    "method": "registry_cleanup",
+                    "status": "failed",
+                    "reason": f"Unknown hive: {hive_name}"
+                }
+            
+            # Delete registry key (with service account privileges)
+            cmd = f'reg delete "{key_path}\\{key_to_delete}" /f'
+            result = self._execute_as_service_account(cmd)
+            
+            self.removal_log.append(f"Registry cleaned: {registry_key}")
+            
+            return {
+                "method": "registry_cleanup",
+                "key": registry_key,
+                "status": "completed"
+            }
+        
+        except Exception as e:
+            return {
+                "method": "registry_cleanup",
+                "status": "failed",
+                "error": str(e)
+            }
+    
+    def _verify_removal(self, software_name: str, target_version: str) -> list:
+        """Verify software was completely removed"""
+        
+        detector = SoftwareDetectionEngine()
+        remaining = detector.scan_all_paths(software_name, target_version)
+        
+        self.removal_log.append(f"Verification: {len(remaining['instances_found'])} instances remain")
+        
+        return remaining["instances_found"]
+    
+    def _execute_as_service_account(self, cmd: str) -> dict:
+        """Execute command with service account credentials"""
+        
+        import subprocess
+        import base64
+        
+        # Create PowerShell command that uses stored credentials
+        ps_cmd = f"""
+$pass = ConvertTo-SecureString '{self.creds['password']}' -AsPlainText -Force
+$cred = New-Object System.Management.Automation.PSCredential ('{self.creds['username']}', $pass)
+Invoke-Command -ScriptBlock {{ {cmd} }} -Credential $cred
+        """
+        
+        result = subprocess.run(
+            ["powershell", "-Command", ps_cmd],
+            capture_output=True,
+            text=True
+        )
+        
+        return {
+            "exit_code": result.returncode,
+            "stdout": result.stdout,
+            "stderr": result.stderr
+        }
+```
+
+---
+
+## 6. Service Account Management
+
+### 6.1 Credential Management Strategy
+
+```python
+# credential_manager.py
+
+class ServiceAccountCredentialManager:
+    """
+    Manages encrypted credentials for elevated software removal operations
+    Uses Azure Key Vault / HashiCorp Vault for secure storage
+    """
+    
+    def __init__(self, vault_type: str = "azure"):
+        self.vault_type = vault_type
+        self.vault_client = self._init_vault()
+    
+    def _init_vault(self):
+        """Initialize vault client"""
+        
+        if self.vault_type == "azure":
+            from azure.identity import DefaultAzureCredential
+            from azure.keyvault.secrets import SecretClient
+            
+            credential = DefaultAzureCredential()
+            client = SecretClient(
+                vault_url=os.getenv("AZURE_KEYVAULT_URL"),
+                credential=credential
+            )
+            return client
+        
+        elif self.vault_type == "hashicorp":
+            import hvac
+            client = hvac.Client(
+                url=os.getenv("VAULT_ADDR"),
+                token=os.getenv("VAULT_TOKEN")
+            )
+            return client
+    
+    def get_service_account_credentials(self, 
+                                      service_account_name: str,
+                                      required_permissions: list[str]) -> dict:
+        """
+        Retrieve service account credentials
+        
+        Requirements:
+        - Account must have: SeServiceLogonRight, SE_RESTORE_NAME, SE_BACKUP_NAME
+        - Minimum permissions for software removal:
+          * Registry: HKEY_LOCAL_MACHINE delete
+          * File system: C:\Program Files delete
+          * Services: Stop/start services
+          * WMI: Execute Win32_Product methods
+        """
+        
+        # Retrieve from vault
+        if self.vault_type == "azure":
+            secret = self.vault_client.get_secret(f"svc-{service_account_name}-creds")
+            credentials_json = secret.value
+        
+        elif self.vault_type == "hashicorp":
+            response = self.vault_client.secrets.kv.read_secret_version(
+                path=f"it-secret/service-accounts/{service_account_name}"
+            )
+            credentials_json = response['data']['data']
+        
+        credentials = json.loads(credentials_json)
+        
+        # Validate permissions
+        self._validate_permissions(service_account_name, required_permissions)
+        
+        # Create temporary token (expires in 30 minutes)
+        credentials['temporary_token'] = self._create_temporary_token(
+            service_account_name,
+            validity_seconds=1800
+        )
+        
+        # Log access
+        self._audit_log_credential_access(
+            service_account_name,
+            "credential_retrieved",
+            required_permissions
+        )
+        
+        return credentials
+    
+    def _validate_permissions(self, service_account_name: str, required_permissions: list[str]):
+        """
+        Validate service account has required permissions
+        
+        Check against Active Directory groups:
+        - "SoftwareRemoval_RegistryDelete"
+        - "SoftwareRemoval_FileDelete"
+        - "SoftwareRemoval_ServiceControl"
+        """
+        
+        from ldap3 import Server, Connection, ALL
+        
+        server = Server(os.getenv("LDAP_SERVER"), get_info=ALL)
+        conn = Connection(server, user=service_account_name, password="***")
+        
+        if not conn.bind():
+            raise PermissionError(f"Cannot bind as {service_account_name}")
+        
+        required_groups = {
+            "registry_delete": "SoftwareRemoval_RegistryDelete",
+            "file_delete": "SoftwareRemoval_FileDelete",
+            "service_control": "SoftwareRemoval_ServiceControl"
+        }
+        
+        for perm in required_permissions:
+            group = required_groups.get(perm)
+            if group and not self._user_in_group(conn, service_account_name, group):
+                raise PermissionError(
+                    f"Account {service_account_name} not in group {group}"
+                )
+    
+    def _create_temporary_token(self, service_account_name: str, validity_seconds: int) -> str:
+        """Create temporary access token with expiration"""
+        
+        import jwt
+        
+        payload = {
+            "service_account": service_account_name,
+            "issued_at": datetime.utcnow().timestamp(),
+            "expires_at": (datetime.utcnow() + timedelta(seconds=validity_seconds)).timestamp()
+        }
+        
+        token = jwt.encode(
+            payload,
+            os.getenv("TOKEN_SECRET_KEY"),
+            algorithm="HS256"
+        )
+        
+        return token
+    
+    def _audit_log_credential_access(self, service_account: str, action: str, permissions: list):
+        """Log all credential access for audit trail"""
+        
+        log_entry = {
+            "timestamp": datetime.utcnow().isoformat(),
+            "service_account": service_account,
+            "action": action,
+            "permissions_requested": permissions,
+            "caller": self._get_caller_info(),
+            "ip_address": self._get_request_ip()
+        }
+        
+        # Log to immutable audit database
+        # Also alert if unusual access pattern
+        pass
+```
+
+---
+
+## 7. Email Parser & Extractor
+
+### 7.1 Advanced Email Parsing
+
+```python
+# email_parser.py
+
+class EmailSoftwareParser:
+    """
+    Parse emails containing unauthorized software removal requests
+    Extracts software name, version, urgency, and target devices
+    """
+    
+    def parse_email(self, email_message: dict) -> dict:
+        """
+        Parse email and extract structured software removal request
+        
+        Supported formats:
+        1. Structured format (key: value)
+        2. Free text with NLP extraction
+        3. Attachment (CSV, JSON)
+        """
+        
+        # Try structured format first
+        parsed = self._parse_structured(email_message)
+        
+        # Fallback to NLP-based extraction
+        if not parsed.get("software_name"):
+            parsed = self._parse_freetext_nlp(email_message)
+        
+        # Try attachments
+        if parsed.get("attachment_data"):
+            parsed = self._parse_attachment(email_message, parsed)
+        
+        # Validate extracted data
+        self._validate_parsed_data(parsed)
+        
+        return parsed
+    
+    def _parse_structured(self, email_message: dict) -> dict:
+        """Parse structured format: Software: X, Version: X, etc."""
+        
+        body = email_message.get("body", "")
+        
+        # Use regex to extract key-value pairs
+        import re
+        
+        result = {}
+        
+        # Software name
+        match = re.search(r'Software:\s*([^\n]+)', body, re.IGNORECASE)
+        if match:
+            result['software_name'] = match.group(1).strip()
+        
+        # Version
+        match = re.search(r'Version:\s*([^\n]+)', body, re.IGNORECASE)
+        if match:
+            result['software_version'] = match.group(1).strip()
+        
+        # Device IDs
+        device_ids = re.findall(r'DEV-\d{4}|[A-Z]+-[A-Z0-9]+', body)
+        if device_ids:
+            result['device_ids'] = list(set(device_ids))  # Deduplicate
+        
+        # Reason
+        match = re.search(r'Reason:\s*([^\n]+)', body, re.IGNORECASE)
+        if match:
+            result['removal_reason'] = match.group(1).strip()
+        
+        # Urgency
+        urgency_match = re.search(
+            r'(CRITICAL|IMMEDIATE|HIGH|MEDIUM|LOW)',
+            email_message.get("subject", ""),
+            re.IGNORECASE
+        )
+        if urgency_match:
+            result['urgency'] = urgency_match.group(1).lower()
+        
+        return result
+    
+    def _parse_freetext_nlp(self, email_message: dict) -> dict:
+        """
+        Use NLP to extract software details from free text email
+        This is a fallback for unstructured emails
+        """
+        
+        from transformers import pipeline
+        
+        # NLP models
+        ner_model = pipeline("ner", model="bert-base-multilingual-cased")
+        qa_model = pipeline("question-answering")
+        
+        body = email_message.get("body", "")
+        subject = email_message.get("subject", "")
+        
+        result = {}
+        
+        # Extract entities from subject
+        entities = ner_model(subject)
+        for entity in entities:
+            if entity['entity_group'] == 'MISC':  # Likely software name
+                result['software_name'] = entity['word']
+        
+        # Question-answering for details
+        questions = [
+            "What software needs to be removed?",
+            "What version should be removed?",
+            "How urgent is this?",
+            "Which devices are affected?"
+        ]
+        
+        for question in questions:
+            answer = qa_model(question, body)
+            if answer['score'] > 0.5:
+                if "software" in question:
+                    result['software_name'] = answer['answer']
+                elif "version" in question:
+                    result['software_version'] = answer['answer']
+                elif "urgent" in question:
+                    result['urgency'] = self._classify_urgency(answer['answer'])
+                elif "device" in question:
+                    result['device_ids'] = self._extract_device_ids(answer['answer'])
+        
+        return result
+    
+    def _parse_attachment(self, email_message: dict, base_parsed: dict) -> dict:
+        """
+        Parse attachment if present
+        Supports CSV and JSON formats
+        """
+        
+        for attachment in email_message.get("attachments", []):
+            filename = attachment.get("filename", "")
+            
+            if filename.endswith(".csv"):
+                # Parse CSV
+                import csv
+                data = csv.DictReader(attachment['content'].splitlines())
+                
+                # Expected columns: device_id, software_name, software_version
+                devices = []
+                for row in data:
+                    devices.append(row.get('device_id'))
+                    if 'software_name' in row:
+                        base_parsed['software_name'] = row['software_name']
+                    if 'software_version' in row:
+                        base_parsed['software_version'] = row['software_version']
+                
+                base_parsed['device_ids'] = devices
+            
+            elif filename.endswith(".json"):
+                # Parse JSON
+                import json
+                data = json.loads(attachment['content'])
+                base_parsed.update(data)
+        
+        return base_parsed
+    
+    def _validate_parsed_data(self, parsed: dict):
+        """Validate required fields are present"""
+        
+        required_fields = ['software_name', 'software_version']
+        
+        for field in required_fields:
+            if not parsed.get(field):
+                raise ValueError(f"Missing required field: {field}")
+        
+        # Validate version format
+        import re
+        if not re.match(r'[\d.]+', parsed['software_version']):
+            raise ValueError(f"Invalid version format: {parsed['software_version']}")
+```
+
+---
+
+## 8. Error Handling & Rollback
+
+```python
+# error_handling.py
+
+class RemovalErrorHandler:
+    """
+    Handle errors during software removal
+    Automatic rollback to restore point
+    """
+    
+    def __init__(self):
+        self.restore_points = {}
+    
+    def handle_removal_error(self, error: Exception, context: dict) -> dict:
+        """
+        Handle removal error with automatic rollback
+        
+        Strategy:
+        1. Log error details
+        2. Stop removal immediately
+        3. Rollback to restore point (if available)
+        4. Notify user
+        5. Escalate to human
+        """
+        
+        device_id = context.get("device_id")
+        software = context.get("software_name")
+        version = context.get("version")
+        
+        error_response = {
+            "status": "error",
+            "device": device_id,
+            "software": software,
+            "version": version,
+            "error_message": str(error),
+            "error_type": type(error).__name__,
+            "timestamp": datetime.now().isoformat(),
+            "rollback_executed": False
+        }
+        
+        try:
+            # Attempt rollback
+            if device_id in self.restore_points:
+                restore_point = self.restore_points[device_id]
+                self._rollback_to_restore_point(device_id, restore_point)
+                error_response["rollback_executed"] = True
+                error_response["rollback_point"] = restore_point
+            
+        except Exception as rollback_error:
+            error_response["rollback_failed"] = True
+            error_response["rollback_error"] = str(rollback_error)
+            # ESCALATE - manual intervention required
+            self._escalate_to_human(device_id, error_response)
+        
+        return error_response
+    
+    def _rollback_to_restore_point(self, device_id: str, restore_point: str):
+        """Rollback device to previous restore point"""
+        
+        cmd = f'powershell -Command "Restore-Computer -RestorePoint {restore_point} -Confirm:$false"'
+        # Execute command...
+        pass
+    
+    def _escalate_to_human(self, device_id: str, error_response: dict):
+        """Send alert to human for manual intervention"""
+        
+        # Send email to IT team
+        # Create ticket in service desk
+        # Page on-call engineer if critical
+        pass
+```
+
+---
+
+## 9. Audit Logging & Compliance
+
+```python
+# audit_logger.py
+
+class AuditLogger:
+    """
+    Immutable audit log for all removal operations
+    Required for compliance (SOX, HIPAA, etc.)
+    """
+    
+    def __init__(self, db_connection):
+        self.db = db_connection
+    
+    def log_removal_operation(self, operation: dict):
+        """
+        Log removal operation to immutable audit table
+        
+        Fields:
+        - Timestamp (UTC)
+        - User/Service Account
+        - Software
+        - Version
+        - Device
+        - Action Taken
+        - Success/Failure
+        - Before/After State
+        - Approver
+        - Reason
+        """
+        
+        log_entry = {
+            "operation_id": str(uuid.uuid4()),
+            "timestamp_utc": datetime.utcnow().isoformat(),
+            "operation_type": "software_removal",
+            "service_account": operation.get("service_account"),
+            "software_name": operation.get("software_name"),
+            "software_version": operation.get("software_version"),
+            "device_id": operation.get("device_id"),
+            "action": operation.get("action"),
+            "result": operation.get("result"),  # "success" or "failure"
+            "before_state": operation.get("before_telemetry"),
+            "after_state": operation.get("after_telemetry"),
+            "removal_reason": operation.get("removal_reason"),
+            "approved_by": operation.get("approver"),
+            "email_message_id": operation.get("email_message_id"),
+            "ip_address": operation.get("ip_address"),
+            "notes": operation.get("notes")
+        }
+        
+        # Insert into immutable table
+        # Set encryption at rest
+        # Set audit flags to prevent modification
+        self.db.insert("audit_log", log_entry)
+        
+        # Also log to compliance systems
+        self._send_to_compliance_system(log_entry)
+    
+    def get_audit_trail(self, filters: dict) -> list:
+        """
+        Retrieve audit trail for compliance reporting
+        Supports filtering by date, device, software, user
+        """
+        
+        query = """
+        SELECT * FROM audit_log
+        WHERE 1=1
+        """
+        
+        if filters.get("device_id"):
+            query += f" AND device_id = '{filters['device_id']}'"
+        
+        if filters.get("software_name"):
+            query += f" AND software_name = '{filters['software_name']}'"
+        
+        if filters.get("date_from"):
+            query += f" AND timestamp_utc >= '{filters['date_from']}'"
+        
+        if filters.get("date_to"):
+            query += f" AND timestamp_utc <= '{filters['date_to']}'"
+        
+        return self.db.query(query)
+```
+
+---
+
+## 10. Integration with DEX Sentinel
+
+### 10.1 DEX Sentinel Data Model
+
+```python
+# dex_sentinel_integration.py
+
+class DEXSentinelIntegration:
+    """
+    Send removal outcomes to DEX Sentinel for measurement
+    and continuous improvement
+    """
+    
+    def __init__(self, dex_api_endpoint: str, api_key: str):
+        self.dex_api = dex_api_endpoint
+        self.api_key = api_key
+    
+    def report_removal_outcome(self, outcome: dict):
+        """
+        Report software removal outcome to DEX Sentinel
+        
+        This allows measurement of:
+        - Before/after boot time
+        - Before/after ticket volume
+        - User frustration improvement
+        - DEX Score impact
+        """
+        
+        # Prepare remediation record
+        remediation_record = {
+            "remediation_id": outcome.get("remediation_id"),
+            "device_id": outcome.get("device_id"),
+            "software_removed": outcome.get("software_name"),
+            "version_removed": outcome.get("software_version"),
+            "week_of_remediation": self._get_week_number(),
+            "action_taken": f"Uninstall {outcome['software_name']} {outcome['software_version']}",
+            "success": outcome.get("success"),
+            "removal_reason": outcome.get("removal_reason"),
+            
+            # Telemetry before remediation
+            "pre_boot_duration_sec": outcome.get("before_telemetry", {}).get("boot_time"),
+            "pre_app_hang_count": outcome.get("before_telemetry", {}).get("app_hangs"),
+            "pre_network_latency_ms": outcome.get("before_telemetry", {}).get("network_latency"),
+            "pre_hardware_health_score": outcome.get("before_telemetry", {}).get("hardware_health"),
+            
+            # Telemetry after remediation
+            "post_boot_duration_sec": outcome.get("after_telemetry", {}).get("boot_time"),
+            "post_app_hang_count": outcome.get("after_telemetry", {}).get("app_hangs"),
+            "post_network_latency_ms": outcome.get("after_telemetry", {}).get("network_latency"),
+            "post_hardware_health_score": outcome.get("after_telemetry", {}).get("hardware_health"),
+            
+            # Ticket impact
+            "pre_ticket_count": outcome.get("before_tickets", 0),
+            "post_ticket_count": outcome.get("after_tickets", 0),
+            "pre_repeat_contact_rate_pct": outcome.get("before_repeat_contact_rate", 0),
+            "post_repeat_contact_rate_pct": outcome.get("after_repeat_contact_rate", 0),
+            
+            # Frustration impact
+            "pre_frustration_score": outcome.get("before_frustration", 0),
+            "post_frustration_score": outcome.get("after_frustration", 0)
+        }
+        
+        # Send to DEX Sentinel API
+        response = requests.post(
+            f"{self.dex_api}/api/v1/remediations",
+            json=remediation_record,
+            headers={"X-API-Key": self.api_key}
+        )
+        
+        if response.status_code == 201:
+            print(f"Remediation logged to DEX Sentinel: {remediation_record['remediation_id']}")
+        else:
+            print(f"Error logging to DEX Sentinel: {response.text}")
+    
+    def _get_week_number(self) -> int:
+        """Get current week number of year"""
+        from datetime import datetime
+        return datetime.now().isocalendar()[1]
+```
+
+---
+
+## 11. Deployment & Configuration
+
+### 11.1 Configuration File
+
+```yaml
+# .env.mcp-email-removal
+
+# Email Service Configuration
+EMAIL_SERVICE_TYPE: "office365"  # gmail, office365, imap
+OFFICE365_TENANT_ID: "your-tenant-id"
+OFFICE365_CLIENT_ID: "your-client-id"
+OFFICE365_CLIENT_SECRET: "your-secret"
+EMAIL_POLL_INTERVAL_SECONDS: 300
+
+# Email Whitelist
+AUTHORIZED_SENDERS: |
+  security-team@company.com
+  it-compliance@company.com
+  vulnerability-scanner@company.com
+
+# Credential Management
+VAULT_TYPE: "azure"  # azure, hashicorp, aws_secrets
+AZURE_KEYVAULT_URL: "https://your-vault.vault.azure.net/"
+SERVICE_ACCOUNT_NAME: "svc_software_removal"
+
+# Service Account Permissions (Windows)
+REQUIRED_PERMISSIONS:
+  - registry_delete
+  - file_delete
+  - service_control
+  - msi_uninstall
+
+# DEX Sentinel Integration
+DEX_SENTINEL_API: "https://dex-sentinel.company.com/api/v1"
+DEX_SENTINEL_API_KEY: "your-api-key"
+
+# Logging & Audit
+AUDIT_DATABASE_URL: "postgresql://user:pass@localhost/audit_logs"
+LOG_LEVEL: "INFO"
+IMMUTABLE_AUDIT_LOG: true
+
+# Remediation Settings
+CREATE_RESTORE_POINT: true
+PARALLEL_DEVICE_EXECUTION: false
+MAX_REMOVAL_DURATION_MINUTES: 30
+AUTOMATIC_ROLLBACK_ON_FAILURE: true
+
+# Notifications
+NOTIFY_USER_BEFORE_REMOVAL: true
+USER_NOTIFICATION_LEAD_TIME_HOURS: 24
+NOTIFY_SECURITY_TEAM_ON_COMPLETION: true
+ESCALATE_TO_HUMAN_ON_FAILURE: true
+```
+
+### 11.2 Docker Deployment
+
+```dockerfile
+# Dockerfile
+
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install dependencies
+COPY requirements.txt .
+RUN pip install -r requirements.txt
+
+# Copy application
+COPY backend/ ./backend/
+COPY mcp_email_server.py .
+COPY agent.py .
+
+# Set environment
+ENV PYTHONUNBUFFERED=1
+ENV LOG_LEVEL=INFO
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+  CMD python -c "import requests; requests.get('http://localhost:8000/health')"
+
+# Start agent
+CMD ["python", "agent.py"]
+```
+
+---
+
+## 12. Implementation Timeline
+
+### Phase 1: Foundation (Weeks 1-2)
+```
+Week 1:
+  ✓ Set up MCP email server with Gmail/Office 365 integration
+  ✓ Create email parser and structured extraction
+  ✓ Build credential manager with Azure Key Vault
+  ✓ Create service account in AD with removal permissions
+  ✓ Set up audit logging database
+
+Week 2:
+  ✓ Implement software detection engine (registry + file system scan)
+  ✓ Build version-specific removal logic
+  ✓ Create restore point mechanism
+  ✓ Test on sandbox environment
+```
+
+### Phase 2: Agent & Orchestration (Weeks 3-4)
+```
+Week 3:
+  ✓ Build Claude AI agent with tool calling
+  ✓ Implement tool definitions and handlers
+  ✓ Create error handling and rollback logic
+  ✓ Integration tests with MCP server
+
+Week 4:
+  ✓ End-to-end workflow testing
+  ✓ Security review and hardening
+  ✓ Performance testing (multi-device removal)
+  ✓ Documentation
+```
+
+### Phase 3: DEX Integration & Testing (Week 5)
+```
+Week 5:
+  ✓ Implement DEX Sentinel telemetry capture
+  ✓ Create remediation records
+  ✓ Build DEX outcome reporting
+  ✓ Pilot test with 10 unauthorized software cases
+  ✓ Measure and validate outcomes
+```
+
+### Phase 4: Production Rollout (Week 6+)
+```
+Week 6:
+  ✓ Deploy to production
+  ✓ Enable email monitoring
+  ✓ Create user notifications
+  ✓ Set up alerting and escalation
+  ✓ Establish on-call rotation
+```
+
+---
+
+## Architecture Diagram (Complete)
+
+```
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                         EMAIL MONITORING LAYER                                │
+│  ┌──────────────────────────────────────────────────────────────────────────┐ │
+│  │  MCP Email Server (Custom Tool)                                          │ │
+│  │  ├─ Connects to: Gmail API / Office 365 REST / IMAP                      │ │
+│  │  ├─ Polls every 300 seconds                                              │ │
+│  │  ├─ Validates sender whitelist                                           │ │
+│  │  ├─ Parses structured + free-text emails                                 │ │
+│  │  └─ Publishes events to queue                                            │ │
+│  └──────────────────────────────────────────────────────────────────────────┘ │
+└──────────────────────────────┬───────────────────────────────────────────────┘
+                               ↓
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                       AI AGENT ORCHESTRATION                                  │
+│  ┌──────────────────────────────────────────────────────────────────────────┐ │
+│  │  Claude AI Agent (Software-Remediation-Agent)                            │ │
+│  │  ├─ Model: claude-opus-5-5                                               │ │
+│  │  ├─ Tool Calling Loop (up to 10 iterations)                              │ │
+│  │  ├─ Decision Logic & Error Handling                                      │ │
+│  │  └─ Human Escalation on Failure                                          │ │
+│  └──────────────────────────────────────────────────────────────────────────┘ │
+└──────────┬───────────────────────────────────────────────────────────┬────────┘
+           ↓                                                           ↓
+┌────────────────────────────────────────────┐   ┌───────────────────────────────┐
+│      BUSINESS LOGIC TOOLS                  │   │  SUPPORT SERVICES             │
+│  ┌─────────────────────────────────────┐  │   │  ┌─────────────────────────┐  │
+│  │ • email_parser_tool                 │  │   │  │ Credential Manager      │  │
+│  │ • software_inventory_tool           │  │   │  │ • Azure Key Vault       │  │
+│  │ • version_matcher_tool              │  │   │  │ • Token Generation      │  │
+│  │ • safety_validator_tool             │  │   │  │ • Permission Validation │  │
+│  │ • credential_manager_tool           │  │   │  └─────────────────────────┘  │
+│  │ • removal_orchestrator_tool         │  │   │  ┌─────────────────────────┐  │
+│  │ • outcome_reporter_tool             │  │   │  │ Audit Logger            │  │
+│  │                                     │  │   │  │ • Immutable Logs        │  │
+│  │                                     │  │   │  │ • Compliance Reporting  │  │
+│  │                                     │  │   │  │ • SOX/HIPAA Compliance  │  │
+│  └─────────────────────────────────────┘  │   │  └─────────────────────────┘  │
+└────────────┬───────────────────────────────┘   └────────────┬──────────────────┘
+             ↓                                                 ↓
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                    SOFTWARE DETECTION & REMOVAL                               │
+│  ┌──────────────────────────────────────────────────────────────────────────┐ │
+│  │  Software Detection Engine                  Software Removal Engine      │ │
+│  │  ├─ Registry Scanner (HKLM, HKCU)          ├─ Create Restore Point     │ │
+│  │  │  └─ HKEY_LOCAL_MACHINE\Software\..      ├─ Stop Running Processes  │ │
+│  │  │     Wow6432Node\Software\..             ├─ MSI Uninstall           │ │
+│  │  │                                          ├─ EXE Uninstall           │ │
+│  │  ├─ File System Scanner                    ├─ Manual File Deletion    │ │
+│  │  │  └─ C:\Program Files                    ├─ Registry Cleanup        │ │
+│  │  │     C:\Program Files (x86)              └─ Verify Removal          │ │
+│  │  │     C:\ProgramData                                                  │ │
+│  │  │     %APPDATA%, %LOCALAPPDATA%                                       │ │
+│  │  │                                                                      │ │
+│  │  ├─ WMI Query Engine                                                   │ │
+│  │  │  └─ Win32_Product (MSI packages)                                    │ │
+│  │  │                                                                      │ │
+│  │  └─ Version Matching                                                   │ │
+│  │     └─ Exact version comparison (6.0.36 vs 6.0.37)                    │ │
+│  └──────────────────────────────────────────────────────────────────────────┘ │
+└──────────────┬──────────────────────────────────────┬──────────────────────────┘
+               ↓                                      ↓
+┌──────────────────────────────────┐   ┌───────────────────────────────────────┐
+│  SERVICE ACCOUNT EXECUTION       │   │  ERROR HANDLING & ROLLBACK            │
+│  ├─ Elevated Privileges          │   │  ├─ Automatic Rollback               │ │
+│  ├─ Encrypted Credentials        │   │  ├─ Restore Point Restoration        │ │
+│  ├─ 30-min Token Validity        │   │  ├─ Manual Escalation                │ │
+│  ├─ Audit Trail Logging          │   │  └─ Human Notification               │ │
+│  └─ Permission Validation        │   └───────────────────────────────────────┘ │
+└──────────────┬───────────────────┘                                              │
+               ↓                                                                   │
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                    VALIDATION & OUTCOME MEASUREMENT                           │
+│  ┌──────────────────────────────────────────────────────────────────────────┐ │
+│  │  Verification Engine                DEX Sentinel Integration            │ │
+│  │  ├─ Re-scan file system             ├─ Send remediation record         │ │
+│  │  ├─ Re-scan registry                ├─ Capture before/after telemetry  │ │
+│  │  ├─ Verify no processes running     ├─ Measure boot time improvement   │ │
+│  │  └─ Signature verification          ├─ Track ticket reduction          │ │
+│  │                                     ├─ Calculate DEX Score improvement │ │
+│  │                                     └─ Generate business value report  │ │
+│  └──────────────────────────────────────────────────────────────────────────┘ │
+└──────────────┬──────────────────────────────────────┬──────────────────────────┘
+               ↓                                      ↓
+┌──────────────────────────────────┐   ┌───────────────────────────────────────┐
+│  AUDIT LOGGING                   │   │  USER NOTIFICATIONS                   │ │
+│  ├─ Immutable Audit Table        │   │  ├─ Pre-removal notification         │ │
+│  ├─ Compliance Database          │   │  ├─ Removal confirmation             │ │
+│  ├─ SOX/HIPAA/ISO Compliance     │   │  ├─ Performance improvement report   │ │
+│  └─ Encryption at Rest           │   │  └─ Support contact info             │ │
+└──────────────────────────────────┘   └───────────────────────────────────────┘
+```
+
+---
+
+## Success Criteria
+
+✅ **Automation**
+- Email → Removal in < 10 minutes (CRITICAL urgency)
+- Zero manual tickets for unauthorized software
+- Parallel removal of 100+ devices simultaneously
+
+✅ **Accuracy**
+- 100% version-specific removal (not all versions)
+- Zero unintended removal of required software
+- 99.9% success rate (rollback available)
+
+✅ **Safety**
+- Automatic rollback on any failure
+- Dependency checking before removal
+- Human escalation on edge cases
+
+✅ **Compliance**
+- Immutable audit trail
+- Service account access logging
+- Approval chains documented
+
+✅ **Business Impact**
+- Average boot time improvement: +20%
+- Reduction in related support tickets: 80%+
+- Security exposure window: 2-3 weeks (from 6-12 months)
+- DEX Score improvement: +5-10 points
+
+---
+
+**Document prepared for:** MCP Email Integration Automation  
+**Target completion:** 6 weeks  
+**Resources required:** 2-3 engineers (DevSecOps, Python, Azure)  
+**Technology stack:** Python, FastAPI, Claude API, Azure Key Vault, Office 365 API, PostgreSQL

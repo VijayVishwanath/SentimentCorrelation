@@ -12,11 +12,13 @@ survives repeat contacts points at profile corruption rather than the binary.
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Callable
 
 import pandas as pd
 
+from . import dimensions as dims
 from . import experience as exp
 from . import telemetry as tel
 from .thresholds import ACTION_BY_CATEGORY, CATEGORIES, CATEGORY_PRIMARY_SIGNAL, THRESHOLDS, TELEMETRY_SIGNALS, signal_state
@@ -137,7 +139,7 @@ SUBCAUSES: dict[str, list[SubCause]] = {
         SubCause("Disk failure risk", "Replace disk; restore user data from backup", "KB-HW-002",
                  lambda c: 0.8 if c.row["disk_health_pct"] < THRESHOLDS["disk"]["warn"] else 0.1),
         SubCause("Thermal / fan failure", "Clean or replace fan; update thermal firmware", "KB-HW-003",
-                 lambda c: 0.9 if c.has("overheat", "fan", "noise") else 0.05),
+                 lambda c: 0.9 if c.has("overheat", "fan", "noise") or _hot(c.row) else 0.05),
         SubCause("Display / input peripheral fault", "Replace display cable / trackpad assembly", "KB-HW-004",
                  lambda c: 0.9 if c.has("screen", "trackpad", "flicker") else 0.05),
     ],
@@ -184,9 +186,80 @@ CATEGORY_EVIDENCE_SIGNALS = {
     "Performance": ["boot", "disk"],
     "Network": ["latency", "packet_loss"],
     "Login/Auth": ["noncompliant"],
-    "Hardware": ["hw_health", "battery", "disk"],
+    "Hardware": ["hw_health", "battery", "disk", "temp"],
     "Application Crash": ["hangs"],
 }
+
+
+# ---------------------------------------------------------------- thermal / hang triage
+# Hang and heat language in the ticket triggers a check of device temperature and battery health; matching
+# readings raise the incident's priority. Word boundaries keep "changed" from counting as "hang".
+HANG_TERMS = re.compile(r"\b(hangs?|hanging|hung|freez(?:e|es|ing)|frozen|not responding|unresponsive|stuck)\b")
+HEAT_TERMS = re.compile(r"\b(overheat\w*|over-heat\w*|hot|heat(?:ing)?|high temp\w*|temperature|thermal|"
+                        r"burning|fan (?:is )?(?:loud|noisy|noise|running|spinning)|loud fan)\b")
+PRIORITY_LEVELS = [(80, "P1"), (60, "P2"), (40, "P3"), (0, "P4")]
+LANGUAGE_BOOST = 10
+DIMENSION_BOOST = {"urgency": 10, "impact": 10}  # a High urgency / business-impact read adds weight too
+SIGNAL_BOOST = {"temp": {"warn": 15, "critical": 25}, "battery": {"warn": 10, "critical": 20}}
+HEAVY_APPS_TIP = ("Check whether heavy applications are running: open Task Manager (Ctrl+Shift+Esc), sort by CPU and "
+                  "Memory, and close anything you are not using, such as large spreadsheets, video calls, many browser "
+                  "tabs or builds.")
+
+
+def _hot(row: dict) -> bool:
+    t = row.get("device_temperature_c")
+    return t is not None and not pd.isna(t) and float(t) > THRESHOLDS["temp"]["warn"]
+
+
+def _reading(key: str, row: dict) -> dict:
+    col, label, unit, _ = TELEMETRY_SIGNALS[key]
+    v = row.get(col)
+    if v is None or pd.isna(v):
+        return {"signal": key, "label": label, "value": None, "unit": unit, "state": "na"}
+    return {"signal": key, "label": label, "value": round(float(v), 1), "unit": unit, "state": signal_state(key, v)}
+
+
+def triage(text: str, row: dict, frustration_score: float, dimensions: dict | None = None) -> dict:
+    """Incident priority (P1-P4) and user-facing suggestions.
+
+    Priority starts from the frustration score. When the ticket talks about hangs or heat, device temperature and
+    battery health are checked and add weight: +10 for the language, +15/+25 for a warm/critical temperature and
+    +10/+20 for a worn/critical battery. A High urgency or business-impact read (engines/dimensions.py) adds +10 each.
+    """
+    low = (text or "").lower()
+    terms = sorted({m.group(0) for m in HANG_TERMS.finditer(low)} | {m.group(0) for m in HEAT_TERMS.finditer(low)})
+    base = round(float(frustration_score), 1)
+    reasons = [f"frustration score {base:.0f}"]
+    boost, checked, suggestions = 0, None, []
+    if terms:
+        boost += LANGUAGE_BOOST
+        reasons.append(f"hang / heat language: {', '.join(repr(t) for t in terms)} (+{LANGUAGE_BOOST})")
+        checked = {k: _reading(k, row) for k in ("temp", "battery")}
+        for key, r in checked.items():
+            if r["state"] in ("warn", "critical"):
+                add = SIGNAL_BOOST[key][r["state"]]
+                boost += add
+                reasons.append(f"{r['label'].lower()} {r['value']:g}{r['unit']} is {r['state']} (+{add})")
+            elif r["state"] == "na":
+                reasons.append(f"{r['label'].lower()} not measured")
+        suggestions.append(HEAVY_APPS_TIP)
+        if checked["temp"]["state"] in ("warn", "critical"):
+            suggestions.append("Keep the device on a hard, flat surface with the vents clear, and let it cool down "
+                               "before restarting heavy work.")
+        if checked["battery"]["state"] in ("warn", "critical"):
+            suggestions.append("Work plugged into power for now: a worn battery can slow the device down and make it "
+                               "run hot.")
+    for key, add in DIMENSION_BOOST.items():
+        d = (dimensions or {}).get(key)
+        if d and d["level"] == "High":
+            boost += add
+            cues = ", ".join(c["family"].lower() for c in d["cues"])
+            reasons.append(f"{d['label'].lower()} is high: {cues} (+{add})")
+    score = min(100.0, base + boost)
+    level = next(lvl for floor, lvl in PRIORITY_LEVELS if score >= floor)
+    return {"priority": {"level": level, "score": round(score, 1), "base": base, "boost": boost, "reasons": reasons,
+                         "thermal_check": {"matched_terms": terms, "readings": list(checked.values())} if terms else None},
+            "user_suggestions": suggestions}
 
 
 def expected_outcome(category: str, remediations: pd.DataFrame, store=None) -> dict | None:
@@ -253,9 +326,12 @@ def diagnose(text: str, device_id: str, store, week: int | None = None,
     prior_tickets = store.device_tickets(device_id)
     prior_tickets = prior_tickets[prior_tickets["week"] <= row["week"]]
     health = tel.device_health_row(row, row.get("crash_events", 0) or 0)
+    dim = dims.score_dimensions(text, repeat_contacts, escalations > 0)
+    tri = triage(text, row, experience["frustration_score"], dim)
     return {
         "device": {**device, "week": int(row["week"]), "week_start": store.week_dates.get(int(row["week"]))},
         "experience": experience,
+        "dimensions": dim,
         "telemetry": {"vitals": tel.vitals(row), "device_health": health, "health_band": tel.health_band(health),
                       "telemetry_severity": tel.telemetry_severity_score(row)},
         "root_causes": causes,
@@ -265,6 +341,8 @@ def diagnose(text: str, device_id: str, store, week: int | None = None,
                            "and route to L1 knowledge." if inconclusive
                            else (top_sub["fix"] if top_sub else top["default_action"])),
         "standard_action": top["default_action"],
+        "priority": tri["priority"],
+        "user_suggestions": tri["user_suggestions"],
         "inconclusive": inconclusive,
         "expected_outcome": expected_outcome(top["category"], store.remediations, store),
         "history": {"prior_tickets": int(len(prior_tickets)),

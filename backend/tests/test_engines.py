@@ -96,3 +96,27 @@ def test_store_integrity(store):
     assert set(t["severity"]) <= {"Low", "Medium", "High", "Critical"}
     assert len(store.device_weeks) == 3120
     assert store.device_weeks["device_health"].between(0, 100).all()
+
+
+class TestThermalTriage:
+    def test_no_hang_or_heat_language_keeps_base_priority(self):
+        from app.engines.diagnosis import triage
+        out = triage("Nothing has changed since my last ticket about the VPN.", {"device_temperature_c": 95,
+                                                                               "battery_health_pct": 30}, 50)
+        assert out["priority"]["boost"] == 0 and out["priority"]["level"] == "P3"
+        assert out["priority"]["thermal_check"] is None and out["user_suggestions"] == []
+
+    def test_heat_language_with_hot_device_and_worn_battery_raises_priority(self):
+        from app.engines.diagnosis import HEAVY_APPS_TIP, triage
+        out = triage("Laptop is overheating and Outlook hangs", {"device_temperature_c": 92, "battery_health_pct": 50}, 40)
+        p = out["priority"]
+        assert p["boost"] == 10 + 25 + 10 and p["score"] == 85 and p["level"] == "P1"
+        assert p["thermal_check"]["matched_terms"] == ["hangs", "overheating"]
+        assert out["user_suggestions"][0] == HEAVY_APPS_TIP and len(out["user_suggestions"]) == 3
+
+    def test_unmeasured_temperature_is_reported_not_guessed(self):
+        from app.engines.diagnosis import triage
+        out = triage("Teams is not responding", {"battery_health_pct": 90}, 30)
+        assert out["priority"]["boost"] == 10
+        temp = next(r for r in out["priority"]["thermal_check"]["readings"] if r["signal"] == "temp")
+        assert temp["state"] == "na" and any("not measured" in r for r in out["priority"]["reasons"])

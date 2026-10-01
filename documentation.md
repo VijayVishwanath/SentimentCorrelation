@@ -167,7 +167,7 @@ A single **DEX Score** (0–100) summarises all of this for leadership. Module 8
 | Root-cause second opinion | **Machine learning**: multinomial logistic regression on TF-IDF + telemetry features | scikit-learn |
 | **Predictive risk ("fix before they call")** | **Machine learning**: gradient-boosted trees on telemetry trends + experience history, with isotonic calibration and per-prediction driver explanations | LightGBM, scikit-learn |
 | Knowledge retrieval (RAG) | Okapi **BM25** ranking | Pure Python (no external service) |
-| DEX Copilot | **LLM agent** with tool calling and structured output | Claude (`claude-opus-5-5`) or Azure OpenAI; offline grounded template engine |
+| DEX Copilot | **LLM agent** with tool calling and structured output | Claude (`claude-sonnet-5-5`) or Azure OpenAI; offline grounded template engine |
 
 ### 5.4 Tooling and delivery
 
@@ -257,7 +257,7 @@ flowchart TB
     end
 
     subgraph LLM["Optional LLM providers"]
-        CL["Claude API<br/>claude-opus-5-5"]
+        CL["Claude API<br/>claude-sonnet-5-5"]
         AZ["Azure OpenAI"]
     end
 
@@ -710,7 +710,7 @@ value per week (top N)     = Σ avoidable tickets × cost per ticket      (× 52
 | **Is an LLM used for sentiment scoring or correlation?** | **No.** Sentiment is a validated, explainable keyword lexicon; correlation is classical statistics (Pearson, Spearman, lift). Every number is reproducible and auditable. |
 | **Is machine learning used?** | **Yes, in two places.** (1) **Predictive risk**: a **LightGBM** model forecasts next week's frustrated tickets from telemetry trends, with calibrated risk and per-device explanations. It is measured against the rule baseline in an out-of-time backtest ([10.4](#104-predictive-model-evaluation)). (2) A **second opinion** for root cause: multinomial **logistic regression** on **TF-IDF** text plus standardised telemetry (scikit-learn). The explainable rule engine stays primary for diagnosis. |
 | **Is an LLM used anywhere?** | **Yes, optionally, in DEX Copilot (M5)** to write business-language answers. It must call the app's tools to get every number. |
-| **Which LLM?** | **Anthropic Claude**, model **`claude-opus-5-5`** (default when `ANTHROPIC_API_KEY` is set), or **Azure OpenAI** (your deployment). |
+| **Which LLM?** | **Anthropic Claude**, model **`claude-sonnet-5-5`** (default when `ANTHROPIC_API_KEY` is set), or **Azure OpenAI** (your deployment). |
 | **What if there's no LLM key?** | The Copilot uses the **grounded template engine**, which calls the same tools and returns the same answer format. The whole app works offline. |
 
 ### 10.2 Machine learning: root-cause second opinion
@@ -734,7 +734,7 @@ value per week (top N)     = Σ avoidable tickets × cost per ticket      (× 52
 | Grounding rule | System prompt: every number must come from a tool result; correlation isn't causation; the data is simulated |
 | Output | **Structured JSON** (schema-enforced) with 12 fields: ticket summary, executive summary, primary driver, root-cause explanation, supporting evidence, recommended fix, remediation steps, expected outcome, business impact, confidence, answer, citations |
 | RAG | 22 remediation runbooks (Markdown) ranked with **BM25**, boosted when the category or sub-cause matches; the answer cites article IDs such as KB-APP-003 |
-| Claude settings | Model `claude-opus-5-5`, effort `medium`, prompt caching on the system prompt, server-side refusal fallbacks enabled |
+| Claude settings | Model `claude-sonnet-5-5` only (fixed, not configurable), effort `medium`, prompt caching on the system prompt, no cross-model fallback: a declined request is answered by the template engine |
 | Failover | Authentication, rate-limit, network, refusal or malformed output triggers the grounded template engine automatically, and the UI shows why |
 | Audit | Every Copilot call is logged (provider, question, answer, latency) |
 
@@ -768,7 +768,7 @@ Open the app (see [section 15](#15-installing-and-running)). Use the **filter ro
 | **Value & Priorities** | Two tabs. *Annual Benefits*: the yearly value, four formula cards with editable inputs and their source. *Critical Few · 80/20*: four "X% of issue types → Y% of the impact" tiles, a Pareto chart, and the priority ranking (problem → future risk → solution → ROI) | Edit an input to test a scenario, then **Save as defaults**. On Critical Few click a tile to change the Pareto measure, and **Fix now** on a row. |
 | **Software Remediation** | The request inbox (email-driven removals), parsed request, safety checks, dry-run plan, approval, results, audit trail and run history | Create the dry-run plan, enter the approver's name, then execute. Runbook runs from **Fix now** also appear here. |
 | **Proactive Watchlist** *(new)* | KPIs (devices at elevated risk, expected frustrated tickets, share caught a week early vs rules, avoidable value), the ML-vs-rules backtest, driver importance, the ranked watchlist (risk, band, why, likely cause, proactive fix + runbook, avoidable tickets), calibration chart | Filter by department and choose Top 25/50/100. Click a device to see its risk history and fix. |
-| **M1 Experience Analytics** | Ticket KPIs, frustration by week, severity, emotion, the repeat-contact ladder (frustration rises with each repeat), channel/category breakdowns, top frustration language, a ticket explorer | Click a score in the ticket explorer to see which phrases fired; score new text on Diagnosis Assist. |
+| **M1 Experience Analytics** | Frustration plus three dimensions beyond it (business impact, urgency, trust in IT: weekly trend and the cues behind each), frustration by week, the repeat-contact ladder (frustration rises with each repeat), a ticket explorer with impact / urgency / trust badges. With **Analyst details** on: severity, emotion, channel and category breakdowns, top frustration language | Click a score in the ticket explorer to see which phrases fired; score new text on Diagnosis Assist. |
 | **M2 Telemetry Intelligence** | Device health KPIs, weekly signal trends, threshold breaches, health bands, device model comparison, a searchable device fleet table | Sort by risk to find devices to fix proactively. |
 | **M3 Correlation Engine** | Correlation score, lift cards, frustration by severity bucket, compliance incidence, impact ranking, correlation matrix, risk and frustration heatmaps, scatter with trend line | Switch the score basis; change the heatmap grouping; pick a signal for the scatter. |
 | **M4 Diagnosis Assist** | Intake (ticket, device, week, repeats, escalations) and engine output (frustration, ranked causes, sub-cause, evidence, fix, expected outcome, ML opinion), plus the device vitals and ticket history | Pick a ticket and click **Run diagnosis**, then **Explain with DEX Copilot**. |
@@ -961,7 +961,6 @@ All settings are optional environment variables, and can also go in `.env`.
 | `DEX_MASK_PII` | `false` | Pseudonymise employee names |
 | `DEX_LLM_PROVIDER` | `auto` | `auto` \| `anthropic` \| `azure_openai` \| `template` |
 | `ANTHROPIC_API_KEY` | *(unset)* | Enables Claude for the Copilot |
-| `DEX_ANTHROPIC_MODEL` | `claude-opus-5-5` | Claude model |
 | `DEX_ANTHROPIC_EFFORT` | `medium` | Claude effort level |
 | `AZURE_OPENAI_ENDPOINT` / `_API_KEY` / `_DEPLOYMENT` | *(unset)* | Enables Azure OpenAI |
 | `DEX_MAX_UPLOAD_MB` | `200` | Maximum size per uploaded file |

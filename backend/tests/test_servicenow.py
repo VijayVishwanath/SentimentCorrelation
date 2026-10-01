@@ -180,6 +180,13 @@ def test_scheduler_tick(client):
         wait(client, j)
 
 
+def test_restart_closes_interrupted_runs(client):
+    rid = sync._insert(trigger="scheduled", mode="mock", instance="demo instance", status="running", since="x")
+    assert sync.recover_interrupted() == 1
+    run = sync.get_run(rid)
+    assert run["status"] == "failed" and "restarted" in run["error"] and run["watermark"] is None
+
+
 def test_zz_restore_sample(client):
     r = client.post("/api/v1/datasets/restore-sample")
     assert wait(client, r.json()["id"])["state"] == "succeeded"

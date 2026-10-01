@@ -70,7 +70,7 @@ export default function CommandCenter() {
             </div>
 
             <div className="grid g-4">
-              <Link to={`/dex-score${qs}`} style={{ color: "inherit", textDecoration: "none" }} title="Open the DEX Score breakdown by component and cohort">
+              <Link to={`/evidence?tab=dex-score${qs.replace("?", "&")}`} style={{ color: "inherit", textDecoration: "none" }} title="Open the DEX Score breakdown by component and cohort">
                 <Kpi label="DEX Score" icon={<Gauge size={12} />} value={fmt.n(h.dex_score)} unit="/100" accent={bandColor(h.dex_band)}
                      delta={h.dex_delta} deltaLabel={`${h.dex_band} · ${fmt.signed(h.dex_delta)} pts · by department →`}
                      hint="0.35·Experience + 0.25·Device health + 0.20·Remediation success + 0.10·Resolution + 0.10·Sentiment trend" />
@@ -79,7 +79,7 @@ export default function CommandCenter() {
                    value={h.predicted.available ? fmt.n(h.predicted.frustrated_tickets, 0) : "—"} accent="var(--human)"
                    deltaLabel={h.predicted.available ? "frustrated tickets expected" : "needs more history"}
                    hint="LightGBM forecast of High/Critical frustration tickets next week" />
-              <Link to={`/roi${qs}`} style={{ color: "inherit", textDecoration: "none" }} title="Open the Annual Benefits breakdown">
+              <Link to={`/value?tab=benefits${qs.replace("?", "&")}`} style={{ color: "inherit", textDecoration: "none" }} title="Open the Annual Benefits breakdown">
                 <Kpi label="Annual benefits" tag={<MoneyChip kind="realised" />} icon={<Wallet size={12} />} value={usdShort(h.benefits.total_usd)} unit="/yr" accent="var(--machine)"
                      deltaLabel={`tickets ${usdShort(h.benefits.components[0].value_usd)} · productivity ${usdShort(h.benefits.components[1].value_usd)} · details →`}
                      hint="Ticket cost + productivity recovery + license + hardware refresh savings (Annual Benefits page)" />

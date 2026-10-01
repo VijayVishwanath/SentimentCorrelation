@@ -24,6 +24,8 @@ class Scheduler:
     def start(self) -> None:
         if self._thread and self._thread.is_alive():
             return
+        from .sync import recover_interrupted
+        recover_interrupted()  # no job survives a restart
         self._stop.clear()
         self._thread = threading.Thread(target=self._loop, name="servicenow-auto-sync", daemon=True)
         self._thread.start()

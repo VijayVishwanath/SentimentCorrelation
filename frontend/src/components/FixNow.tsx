@@ -127,7 +127,7 @@ function FixDrawer({ target, onClose }: { target: FixTarget; onClose: () => void
                   { key: "detail", label: "Detail", render: (r: Any) => <span style={{ fontSize: 12 }}>{r.error || `${r.steps.length} steps ok · verified`}</span> },
                 ]} />
                 <div className="row mt">
-                  <Link className="btn btn-primary btn-sm" to={`/outcomes?category=${encodeURIComponent(target.category)}`} onClick={onClose}>
+                  <Link className="btn btn-primary btn-sm" to={`/value?category=${encodeURIComponent(target.category)}`} onClick={onClose}>
                     See the proven outcome for {target.category} fixes →</Link>
                   <Link className="btn btn-ghost btn-sm" to="/remediation" onClick={onClose}>Audit trail</Link>
                   {!single && result.devices_pending_total > result.devices_targeted &&

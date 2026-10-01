@@ -1,10 +1,9 @@
 import { useQueryClient } from "@tanstack/react-query";
+import { AnalystOnly } from "../components/analyst";
 import { RotateCcw, Save } from "lucide-react";
 import { useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
 import { Any, api, fmt, qsOf, useApi, useFilters } from "../api";
 import { Card, ErrorBox, MoneyChip, QueryState } from "../components/ui";
-import CriticalFew from "./CriticalFew";
 
 const COLORS: Record<string, string> = {
   tickets: "var(--chart-human)", productivity: "var(--chart-machine)", licenses: "var(--serious)", hardware: "var(--text-dim)",
@@ -33,25 +32,7 @@ function SourceChip({ s }: { s: string }) {
   return <span className="badge" style={{ color, borderColor: color }}>{label}</span>;
 }
 
-const TABS = [["benefits", "Annual Benefits"], ["critical-few", "Critical Few · 80/20"]] as const;
-
-export default function Roi() {
-  const [params, setParams] = useSearchParams();
-  const tab = params.get("tab") === "critical-few" ? "critical-few" : "benefits";
-  const pick = (t: string) => { const p = new URLSearchParams(params); if (t === "benefits") p.delete("tab"); else p.set("tab", t); setParams(p, { replace: true }); };
-  return (
-    <>
-      <div className="seg" role="tablist" aria-label="ROI views" style={{ marginBottom: 14 }}>
-        {TABS.map(([k, label]) => (
-          <button key={k} role="tab" aria-selected={tab === k} className={tab === k ? "on" : ""} onClick={() => pick(k)}>{label}</button>
-        ))}
-      </div>
-      {tab === "benefits" ? <Benefits /> : <CriticalFew />}
-    </>
-  );
-}
-
-function Benefits() {
+export default function Benefits() {
   const qc = useQueryClient();
   const { filters } = useFilters();
   const [scenario, setScenario] = useState<"realized" | "with_plan">("realized");
@@ -89,7 +70,7 @@ function Benefits() {
         <div>
           <div className="eyebrow">Annual Benefits · ROI</div>
           <h2>What DEX Sentinel is worth per year</h2>
-          <p>Four benefit lines, each with its formula. Volumes come from the data wherever the data has them; edit any input to test a scenario.</p>
+          <p>What fixing the experience is worth per year. Edit any input to test a scenario.</p>
         </div>
         <div className="seg" role="group" aria-label="Scenario">
           <button className={scenario === "realized" ? "on" : ""} onClick={() => setScenario("realized")}>Realised (past fixes)</button>
@@ -114,7 +95,7 @@ function Benefits() {
                   <button className="btn btn-ghost btn-sm" onClick={resetAll}><RotateCcw size={13} />Reset to data</button>
                 </div>
               </div>
-              <div className="mono mt" style={{ fontSize: 12 }}>{d.formula}</div>
+              <AnalystOnly><div className="mono mt" style={{ fontSize: 12 }}>{d.formula}</div></AnalystOnly>
               <div style={{ display: "flex", height: 16, borderRadius: 8, overflow: "hidden", marginTop: 12 }} role="img" aria-label="Benefit mix">
                 {d.components.map((c: Any) => c.value_usd > 0 && (
                   <div key={c.key} title={`${c.label}: ${usd(c.value_usd)}`} style={{ flex: c.value_usd, background: COLORS[c.key] }} />
@@ -135,7 +116,7 @@ function Benefits() {
                 <Card key={c.key} title={c.label} style={{ borderTop: `3px solid ${COLORS[c.key]}` }}
                       right={<div style={{ textAlign: "right" }}><div style={{ fontSize: 26, fontWeight: 800 }}>{usd(c.value_usd)}</div>
                         <div className="note">{c.data_backed ? "data-backed" : "assumption-based"}</div></div>}>
-                  <div className="mono" style={{ fontSize: 12, marginBottom: 12 }}>{c.formula}</div>
+                  <AnalystOnly><div className="mono" style={{ fontSize: 12, marginBottom: 12 }}>{c.formula}</div></AnalystOnly>
                   {c.inputs.map((k: string) => {
                     const inp = d.inputs[k];
                     return (
@@ -154,8 +135,8 @@ function Benefits() {
                 </Card>
               ))}
             </div>
-            <footer className="foot">Ticket cost uses the service-desk handling cost only; employee time lost is counted once, in Productivity Recovery.
-              Measured = counted in the dataset · Derived = computed from measured data by the stated rule · Assumption = replace with your own figures.</footer>
+            <AnalystOnly><footer className="foot">Ticket cost uses the service-desk handling cost only; employee time lost is counted once, in Productivity Recovery.
+              Measured = counted in the dataset · Derived = computed from measured data by the stated rule · Assumption = replace with your own figures.</footer></AnalystOnly>
           </>
         )}
       </QueryState>

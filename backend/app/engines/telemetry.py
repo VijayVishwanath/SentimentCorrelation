@@ -127,6 +127,7 @@ def vitals(row: Mapping) -> list[dict]:
         ("hw_health", "Hardware health", row["hardware_health_score"], ""),
         ("battery", "Battery health", row["battery_health_pct"], "%"),
         ("disk", "Disk health", row["disk_health_pct"], "%"),
+        ("temp", "Temperature", row.get("device_temperature_c"), "°C"),
     ]
     out = [{"key": k, "label": label, "value": None if _missing(v) else round(float(v), 2), "unit": u,
             "state": "na" if _missing(v) else signal_state(k, v)} for k, label, v, u in items]

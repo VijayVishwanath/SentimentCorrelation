@@ -28,7 +28,7 @@ def resolve_provider_name() -> str:
 def _llm_provider(name: str):
     s = get_settings()
     if name == "anthropic":
-        return AnthropicCopilot(s.anthropic_api_key, s.anthropic_model, s.llm_timeout_sec, s.anthropic_effort)
+        return AnthropicCopilot(s.anthropic_api_key, s.llm_timeout_sec, s.anthropic_effort)
     if name == "azure_openai":
         from .provider_azure import AzureOpenAICopilot
         return AzureOpenAICopilot(s.azure_openai_endpoint, s.azure_openai_api_key, s.azure_openai_deployment,

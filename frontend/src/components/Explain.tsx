@@ -3,6 +3,7 @@ import { Info, X } from "lucide-react";
 import { ReactNode, useState } from "react";
 import { createPortal } from "react-dom";
 import { Any, api, fmt, sevColor } from "../api";
+import { DimensionChips } from "./Dimensions";
 import { ErrorBox, Loading, SevBadge } from "./ui";
 
 export type ExplainSource = { ticketId: string } | { text: string; repeat?: number; escalations?: number };
@@ -140,6 +141,15 @@ function ExplainDrawer({ source, onClose }: { source: ExplainSource; onClose: ()
                 <div className="note">negativity = (text score − 8) / 92 · positivity = 0.25 per calm phrase{d.sentiment.softeners.length ? ` (${d.sentiment.softeners.join(", ")})` : ""}</div>
               </div>
             </div>
+
+            {d.dimensions && (
+              <>
+                <div className="field mt">5 · Beyond frustration</div>
+                <DimensionChips d={d.dimensions} />
+                <div className="note" style={{ marginTop: 4 }}>Each dimension adds points per cue family it finds (once per family) plus behaviour from the
+                  ticket record, capped at 100. High ≥ 60 · Medium ≥ 30.</div>
+              </>
+            )}
 
             <details className="mt">
               <summary style={{ cursor: "pointer", fontWeight: 700, fontSize: 13 }}><Info size={13} style={{ verticalAlign: -2, marginRight: 4 }} />Method & full lexicon</summary>

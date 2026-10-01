@@ -2,6 +2,10 @@
 
 A manual loop (rather than the beta tool runner) keeps the tool registry
 provider-neutral and lets us capture a tool-call trace for the UI.
+
+Every request runs on the one configured model (Claude Sonnet 5.5). Server-side fallbacks are deliberately
+not enabled, so a declined request is never re-run on another model; the agent answers from the grounded
+template engine instead and says so.
 """
 from __future__ import annotations
 
@@ -16,7 +20,7 @@ from .tools import TOOLS, run_tool
 log = logging.getLogger(__name__)
 
 MAX_STEPS = 8
-FALLBACK_BETA = "server-side-fallback-2026-07-01"
+MODEL = "claude-sonnet-5-5"  # Claude Sonnet 5.5 is the only model the Copilot uses
 
 
 class CopilotProviderError(RuntimeError):
@@ -26,8 +30,8 @@ class CopilotProviderError(RuntimeError):
 class AnthropicCopilot:
     name = "anthropic"
 
-    def __init__(self, api_key: str | None, model: str, timeout: float, effort: str = "medium", client=None):
-        self.model = model
+    def __init__(self, api_key: str | None, timeout: float, effort: str = "medium", client=None):
+        self.model = MODEL
         self.effort = effort
         self.client = client or anthropic.Anthropic(api_key=api_key, timeout=timeout, max_retries=2)
         self.tools = [{"name": t.name, "description": t.description, "input_schema": t.parameters} for t in TOOLS]
@@ -37,7 +41,7 @@ class AnthropicCopilot:
         trace: list[dict] = []
         for _ in range(MAX_STEPS):
             try:
-                resp = self.client.beta.messages.create(
+                resp = self.client.messages.create(
                     model=self.model,
                     max_tokens=16000,
                     system=[{"type": "text", "text": SYSTEM_PROMPT, "cache_control": {"type": "ephemeral"}}],
@@ -45,8 +49,6 @@ class AnthropicCopilot:
                     messages=messages,
                     output_config={"effort": self.effort,
                                    "format": {"type": "json_schema", "schema": RESPONSE_SCHEMA}},
-                    betas=[FALLBACK_BETA],
-                    fallbacks="default",
                 )
             except anthropic.AuthenticationError as e:
                 raise CopilotProviderError("Claude API authentication failed — check ANTHROPIC_API_KEY") from e

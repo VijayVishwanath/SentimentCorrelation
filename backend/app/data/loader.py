@@ -298,6 +298,7 @@ def _rollup_telemetry(t: pd.DataFrame, rep: LoadReport) -> pd.DataFrame:
     agg = {c: "mean" for c in ["boot_duration_sec", "network_latency_ms", "packet_loss_pct", "hardware_health_score",
                                "battery_health_pct", "disk_health_pct"]}
     agg["app_hang_count"] = "sum"
+    agg["device_temperature_c"] = "max"  # heat is about the spikes, not the average
     agg["week_start"] = "min"
     work = t.copy()
     work["policy_compliant"] = work["policy_compliant"].map(lambda v: np.nan if v is None else float(bool(v)))
@@ -305,7 +306,7 @@ def _rollup_telemetry(t: pd.DataFrame, rep: LoadReport) -> pd.DataFrame:
     out = work.groupby(["device_id", "week"], as_index=False).agg(agg)
     out["policy_compliant"] = out["policy_compliant"].map(lambda v: None if pd.isna(v) else bool(v))
     rep.derived.append(f"telemetry: {before} readings rolled up to {len(out)} device-weeks "
-                       "(mean of levels, sum of app hangs, any non-compliance marks the week)")
+                       "(mean of levels, sum of app hangs, peak temperature, any non-compliance marks the week)")
     return out[list(TABLES["telemetry"])]
 
 

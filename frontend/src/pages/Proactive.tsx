@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Any, fmt, qsOf, useApi, useMeta } from "../api";
 import { Bars, TrendChart } from "../components/charts";
+import { AnalystOnly, useAnalyst } from "../components/analyst";
 import { FixNowButton } from "../components/FixNow";
 import { Card, ChartCard, DataTable, Kpi, Meter, MoneyChip, QueryState } from "../components/ui";
 
@@ -15,6 +16,7 @@ export function RiskBadge({ band }: { band: string }) {
 }
 
 function ModelVsRules({ m }: { m: Any }) {
+  const { on } = useAnalyst();
   const bt = m.backtest;
   const rows = [
     { name: "Share of next-week frustrated tickets caught", ml: bt.ml.recall_pct, rules: bt.rules.recall_pct, max: 100, f: (v: number) => fmt.pct(v) },
@@ -23,20 +25,20 @@ function ModelVsRules({ m }: { m: Any }) {
     { name: "ROC-AUC", ml: bt.ml.roc_auc, rules: bt.rules.roc_auc, max: 1, f: (v: number) => fmt.n(v, 3) },
   ];
   return (
-    <Card title="Model vs rules — out-of-time backtest" sub={bt.method}>
-      {rows.map((r) => (
+    <Card title="Model vs rules" sub={on ? bt.method : "tested on weeks the model never saw"}>
+      {rows.slice(0, on ? rows.length : 1).map((r) => (
         <div key={r.name} style={{ marginBottom: 14 }}>
           <div className="note" style={{ marginBottom: 4 }}>{r.name}</div>
           <Meter value={r.ml ?? 0} max={r.max} color="var(--chart-machine)" label={<span className="mono" style={{ fontSize: 12, minWidth: 110 }}>ML {r.f(r.ml)}</span>} />
           <Meter value={r.rules ?? 0} max={r.max} color="var(--text-faint)" label={<span className="mono faint" style={{ fontSize: 12, minWidth: 110 }}>Rules {r.f(r.rules)}</span>} />
         </div>
       ))}
-      <div className="note">
+      <AnalystOnly><div className="note">
         Test weeks {bt.test_weeks[0]}–{bt.test_weeks[bt.test_weeks.length - 1]} · {fmt.i(bt.rows)} device-weeks · {fmt.i(bt.positives)} frustrated
         tickets · base rate {fmt.pct(m.base_rate_pct, 2)}. "Rules" = the existing at-risk score (60% telemetry severity + 40%
         frustration burden, 4-week mean). A plain threshold rule (any signal past warn) flags {fmt.pct(bt.rules_threshold.flagged_share_pct)} of
         devices at {fmt.pct(bt.rules_threshold.precision_pct)} precision.
-      </div>
+      </div></AnalystOnly>
     </Card>
   );
 }
@@ -53,9 +55,7 @@ export default function Proactive() {
         <div>
           <div className="eyebrow">Predictive DEX · Machine learning</div>
           <h2>Fix it before they call</h2>
-          <p>A gradient-boosted model reads telemetry trends, recent experience and device context to predict which employees will
-            raise a frustrated (High / Critical) ticket next week — explains why for each device, recommends the runbook fix,
-            and prices the tickets a proactive fix avoids.</p>
+          <p>Who will raise a frustrated ticket next week, why, and the fix that prevents it.</p>
         </div>
         <div className="row">
           <select aria-label="Department" value={department} onChange={(e) => setDepartment(e.target.value)}>
@@ -123,6 +123,7 @@ export default function Proactive() {
               ]} />
             </Card>
 
+            <AnalystOnly>
             {d.metrics.calibration.length > 0 && (
               <ChartCard className="mt" title="Calibration — is 30% risk really 30%?" sub="backtest predictions grouped into deciles: predicted vs observed rate"
                          table={d.metrics.calibration} columns={[{ key: "decile", label: "Decile", num: true }, { key: "predicted_pct", label: "Predicted %", num: true },
@@ -133,6 +134,7 @@ export default function Proactive() {
             )}
             <footer className="foot">Target: {d.metrics.target}. LightGBM on {fmt.i(d.metrics.n_rows)} labelled device-weeks; risk calibrated on
               out-of-time predictions (isotonic). Correlation-based prediction, not proof of cause — the Diagnosis Assist confirms the fix.</footer>
+            </AnalystOnly>
           </>
         )}
       </QueryState>
